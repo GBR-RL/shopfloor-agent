@@ -270,12 +270,14 @@ class Route(BaseModel):
 
 ROUTER_PROMPT = """You decide how a maintenance assistant should work on a request, before it
 starts. It can call tools that look up equipment, sensor readings, work orders, events, alerts
-and failure codes, and tools that change work orders.
-- plan: the request needs several tool calls that depend on each other, such as comparing many
-  pieces of equipment, or first finding something (the most frequent alert, the busiest day,
-  the top failure code) and then looking up more about it.
-- react: one or two tool calls are enough: a single record, a count, a statistic over a period,
-  a list, or a change to records.
+and failure codes, and tools that change work orders. One call can filter by equipment and
+date and count or group records (by year, month, type, component or failure code).
+- plan: the answer needs the result of one call before the next call can be made, or the same
+  lookup repeated for every piece of equipment. For example: which equipment has the most of
+  something, or a detail about the most frequent alert or the busiest day.
+- react: one call, or a few independent ones, return what is needed: a single record, a count
+  or grouped counts, a statistic over a period, a list, or a change to records. That includes
+  a maximum over the periods of one piece of equipment, which one grouped count answers.
 Pick the route; when in doubt, pick react."""
 
 
