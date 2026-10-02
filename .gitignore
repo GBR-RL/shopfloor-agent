@@ -1,0 +1,22 @@
+# Environments and caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Data, models, traces and results (downloaded or generated; never committed)
+/data/
+/models/
+/results/
+/traces/
+*.gguf
+*.db
+*.db-journal
+
+# IDEs / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

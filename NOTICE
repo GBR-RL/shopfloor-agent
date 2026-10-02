@@ -1,0 +1,10 @@
+shopfloor-agent
+Copyright (c) 2026 Rohiith Gettala Balachandar (MIT License, see LICENSE)
+
+Plant data
+----------
+The plant database is built from sample data of IBM AssetOpsBench
+(https://github.com/IBM/AssetOpsBench, branch main-0.x, commit
+c6b96755b8a182aa090ee028852cbc83279b2982), licensed under the Apache License 2.0.
+The files are downloaded at build time (`shopfloor data`) and verified by SHA-256;
+they are not redistributed in this repository.
