@@ -1,0 +1,113 @@
+{
+  "security": null,
+  "overall": {
+    "tasks": 143,
+    "passed": 110,
+    "pass_rate": 0.7692307692307693,
+    "ci95": [
+      0.6936769312209806,
+      0.8306976329352259
+    ],
+    "format_failures": 21,
+    "errors": 1,
+    "no_tool_call": 3,
+    "tool_recall": 0.8286713286713286,
+    "tool_error_rate": 0.025925925925925925,
+    "unwanted_writes": 0,
+    "median_seconds": 83.5,
+    "median_tokens_in": 8729.0,
+    "median_steps": 4.0
+  },
+  "tiers": {
+    "lookup": {
+      "tasks": 30,
+      "passed": 30,
+      "pass_rate": 1.0,
+      "ci95": [
+        0.8864829086095221,
+        1.0
+      ],
+      "format_failures": 0,
+      "errors": 0,
+      "no_tool_call": 0,
+      "tool_recall": 1.0,
+      "tool_error_rate": 0.029411764705882353,
+      "unwanted_writes": 0,
+      "median_seconds": 44.489999999999995,
+      "median_tokens_in": 5345.5,
+      "median_steps": 3.0
+    },
+    "aggregate": {
+      "tasks": 57,
+      "passed": 46,
+      "pass_rate": 0.8070175438596491,
+      "ci95": [
+        0.6865906266298637,
+        0.8886736662223952
+      ],
+      "format_failures": 6,
+      "errors": 0,
+      "no_tool_call": 0,
+      "tool_recall": 0.8070175438596491,
+      "tool_error_rate": 0.0,
+      "unwanted_writes": 0,
+      "median_seconds": 75.78,
+      "median_tokens_in": 9385.0,
+      "median_steps": 4.0
+    },
+    "multistep": {
+      "tasks": 22,
+      "passed": 6,
+      "pass_rate": 0.2727272727272727,
+      "ci95": [
+        0.1315058201581444,
+        0.4815212369900198
+      ],
+      "format_failures": 11,
+      "errors": 1,
+      "no_tool_call": 0,
+      "tool_recall": 0.7272727272727273,
+      "tool_error_rate": 0.019704433497536946,
+      "unwanted_writes": 0,
+      "median_seconds": 340.185,
+      "median_tokens_in": 29973.5,
+      "median_steps": 9.0
+    },
+    "action": {
+      "tasks": 22,
+      "passed": 17,
+      "pass_rate": 0.7727272727272727,
+      "ci95": [
+        0.5655964393704065,
+        0.8987710920517964
+      ],
+      "format_failures": 4,
+      "errors": 0,
+      "no_tool_call": 0,
+      "tool_recall": 0.8409090909090909,
+      "tool_error_rate": 0.030303030303030304,
+      "unwanted_writes": 0,
+      "median_seconds": 66.72,
+      "median_tokens_in": 11147.5,
+      "median_steps": 5.0
+    },
+    "unanswerable": {
+      "tasks": 12,
+      "passed": 11,
+      "pass_rate": 0.9166666666666666,
+      "ci95": [
+        0.6461140782014047,
+        0.9851352905492264
+      ],
+      "format_failures": 0,
+      "errors": 0,
+      "no_tool_call": 3,
+      "tool_recall": 0.6666666666666666,
+      "tool_error_rate": 0.18181818181818182,
+      "unwanted_writes": 0,
+      "median_seconds": 62.025000000000006,
+      "median_tokens_in": 9573.5,
+      "median_steps": 4.5
+    }
+  }
+}
