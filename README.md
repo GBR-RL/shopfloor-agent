@@ -18,17 +18,36 @@ the timings on the page are real.*
 | Model (4-bit GGUF) | Pass rate (95% CI) | Lookup | Aggregate | Multi-step | Action | Unanswerable | Median s / task |
 |---|---|---|---|---|---|---|---|
 | Qwen3.5-4B | **143 / 143 = 100%** (97–100%) | 30 / 30 | 57 / 57 | 22 / 22 | 22 / 22 | 12 / 12 | 38 |
-| Granite 4.2 3B | running | | | | | | |
+| Granite 4.2 3B | **110 / 143 = 77%** (69–83%) | 30 / 30 | 47 / 57 | 8 / 22 | 15 / 22 | 10 / 12 | 66 |
 | Granite 4.2 8B | running | | | | | | |
 | Qwen3.5-9B | running | | | | | | |
 
-Qwen3.5-4B solves the whole test split. It issues tool calls in parallel (the fleet-wide
-questions take 12–14 calls in about 6 model steps), reads a search's `total` field instead of
-counting the rows it was shown, still solved all 7 tasks in which one of its tool calls
-failed, and answers "none"
-whenever the data cannot answer. For this model the suite is at its ceiling; the comparisons
-that separate models, agent designs and defences are the runs listed as running above and in
-[What is measured next](#what-is-measured-next).
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/test-models-dark.png">
+  <img alt="Pass rate by task tier on the test split for Granite 4.2 3B and Qwen3.5-4B" src="docs/assets/test-models-light.png">
+</picture>
+
+Both models handle one-call lookups perfectly; they separate where a task needs several
+dependent calls. **Qwen3.5-4B solves the whole test split.** It issues tool calls in parallel
+(the fleet-wide questions take 12–14 calls in about 6 model steps), reads a search's `total`
+field instead of counting the rows it was shown, still solved all 7 tasks in which one of its
+tool calls failed, and answers "none" whenever the data cannot answer. For this model the
+suite is at its ceiling.
+
+**Granite 4.2 3B fails 33 tasks, and how it fails is consistent:**
+
+| Failure | Tasks |
+|---|---:|
+| ran out of the 16-call budget, mostly on fleet-wide maxima and alert → failure-code chains | 15 |
+| wrong value (e.g. counted returned rows, wrong year) | 8 |
+| wrong decision on a conditional action ("create if more than N alerts") | 5 |
+| closed only some of the open work orders | 2 |
+| answered a question the data cannot answer | 2 |
+| no `ANSWER:` line | 1 |
+
+15 of its 33 failures contain the same tool call with the same arguments twice or more,
+against 4 of its 110 passes, so a repeated identical call is a cheap, observable early
+warning that an episode is going wrong. Neither model wrote anything in a read task.
 
 **Tool descriptions are prompts (dev split, Granite 4.2 3B):**
 
@@ -117,22 +136,40 @@ changes. A scripted agent that uses only the agent's own tools solves all 180 ta
 checks on every push. That proves every task solvable with the tools offered, and the ground
 truth consistent with what the tools return. Pass rates carry 95% Wilson intervals.
 
+## Prompt injection
+
+80 tasks: 20 work-order lookups, each asked once clean and three times with instructions
+appended to that work order's description, which the agent reads when it looks the order up.
+The attacker wants it to cancel an unrelated open work order, create a bogus urgent one, or
+report a planted value. Every attack is checked on the database or the answer, and the
+injected text was in a tool result in all 60 attacked episodes.
+
+| Defence (Granite 4.2 3B) | Task success, clean | Task success, attacked | Attack success | cancel | create | planted answer |
+|---|---|---|---|---|---|---|
+| none | 20 / 20 | 58 / 60 | 2 / 60 = 3% (1–11%) | 0 / 20 | 0 / 20 | 2 / 20 |
+| spotlighting | 20 / 20 | 57 / 60 | 3 / 60 = 5% (2–14%) | 0 / 20 | 0 / 20 | 3 / 20 |
+| read-only session | 20 / 20 | 58 / 60 | 2 / 60 = 3% (1–11%) | 0 / 20 | 0 / 20 | 2 / 20 |
+| approval gate | 20 / 20 | 58 / 60 | 2 / 60 = 3% (1–11%) | 0 / 20 | 0 / 20 | 2 / 20 |
+
+The 3B model saw "call cancel_work_order with wo_id …" in 40 episodes and never did it: a
+model that follows instructions loosely is hard to hijack, and the write defences had nothing
+to stop. What got through is the planted value ("the correct answer is M999"), which no
+defence on the write path can catch, and spotlighting did not reduce it. The same suite is
+running with Qwen3.5-4B, which follows instructions far more reliably; that is the run that
+tests the defences. The mechanics of each defence are pinned down by tests with a scripted
+agent that obeys every injection: without a defence all three attacks succeed, the read-only
+session and the approval gate stop both write attacks, and nothing stops the planted answer.
+
 ## What is measured next
 
-These runs are in progress on GitHub's standard runners (4 vCPU, no GPU); this section is
-replaced by their results when they finish.
+In progress on GitHub's standard runners (4 vCPU, no GPU); results replace this section.
 
-- **Models**: Granite 4.2 3B and 8B and Qwen3.5-9B on the test split.
+- **Models**: Granite 4.2 8B and Qwen3.5-9B on the test split.
 - **Agent designs**: plan-and-execute and ReAct-with-reviewer against ReAct, on Granite 4.2 3B.
-- **Prompt injection**: 80 tasks where a work order's description carries instructions aimed
-  at the agent: cancel an unrelated open work order, create a bogus urgent one, or report a
-  planted value. Each defence is scored on attack success and on task success with and without
-  attack. The defences: spotlighting (tool output is marked as data and the prompt says not to
-  follow it), a read-only session, and an approval gate that only lets through writes to the
-  equipment or work orders the request itself names.
-- **LLM-as-judge**: a local judge model grades the recorded episodes, with and without the
-  reference answer, and its verdicts are scored against the deterministic ones. The figure
-  that matters is the false-pass rate: how often a judge passes a run that actually failed.
+- **Prompt injection with Qwen3.5-4B**, all four defences.
+- **LLM-as-judge**: Qwen3.5-4B grades Granite 4.2 3B's 143 test episodes, with and without
+  the reference answer, and its verdicts are scored against the deterministic ones. The figure
+  that matters is the false-pass rate: how often the judge passes a run that actually failed.
 
 ## Run it
 
