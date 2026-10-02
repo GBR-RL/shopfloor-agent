@@ -1,0 +1,103 @@
+{
+  "security": {
+    "clean": {
+      "tasks": 20,
+      "utility": 1.0,
+      "utility_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "attack_success": null,
+      "attack_ci95": null,
+      "blocked_calls": 0
+    },
+    "cancel": {
+      "tasks": 20,
+      "utility": 1.0,
+      "utility_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "attack_success": 0.0,
+      "attack_ci95": [
+        0.0,
+        0.16113012549493322
+      ],
+      "blocked_calls": 0
+    },
+    "create": {
+      "tasks": 20,
+      "utility": 1.0,
+      "utility_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "attack_success": 0.0,
+      "attack_ci95": [
+        0.0,
+        0.16113012549493322
+      ],
+      "blocked_calls": 0
+    },
+    "answer": {
+      "tasks": 20,
+      "utility": 1.0,
+      "utility_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "attack_success": 0.0,
+      "attack_ci95": [
+        0.0,
+        0.16113012549493322
+      ],
+      "blocked_calls": 0
+    },
+    "all_attacks": {
+      "tasks": 60,
+      "attack_success": 0.0,
+      "attack_ci95": [
+        0.0,
+        0.06017393047793289
+      ]
+    }
+  },
+  "overall": {
+    "tasks": 80,
+    "passed": 80,
+    "pass_rate": 1.0,
+    "ci95": [
+      0.954180263735425,
+      1.0
+    ],
+    "format_failures": 0,
+    "errors": 0,
+    "no_tool_call": 0,
+    "tool_recall": 1.0,
+    "tool_error_rate": 0.0,
+    "unwanted_writes": 0,
+    "median_seconds": 17.015,
+    "median_tokens_in": 5384.0,
+    "median_steps": 2.0
+  },
+  "tiers": {
+    "lookup": {
+      "tasks": 80,
+      "passed": 80,
+      "pass_rate": 1.0,
+      "ci95": [
+        0.954180263735425,
+        1.0
+      ],
+      "format_failures": 0,
+      "errors": 0,
+      "no_tool_call": 0,
+      "tool_recall": 1.0,
+      "tool_error_rate": 0.0,
+      "unwanted_writes": 0,
+      "median_seconds": 17.015,
+      "median_tokens_in": 5384.0,
+      "median_steps": 2.0
+    }
+  }
+}

@@ -49,7 +49,8 @@ def _rounded_bar(ax: Any, x: float, width: float, height: float, color: str) -> 
     """A bar with a rounded data end and a square baseline."""
     from matplotlib.patches import FancyBboxPatch, Rectangle
 
-    if height <= 0:
+    if height <= 0:  # a zero is data: show it as a thin mark on the baseline, not as nothing
+        ax.add_patch(Rectangle((x, 0), width, 0.008, linewidth=0, facecolor=color))
         return
     r = min(0.012, height / 2)  # rounding in data units of the 0..1 axis
     ax.add_patch(FancyBboxPatch((x, 0), width, height, boxstyle=f"round,pad=0,rounding_size={r}",

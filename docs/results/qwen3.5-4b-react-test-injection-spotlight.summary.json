@@ -1,0 +1,103 @@
+{
+  "security": {
+    "clean": {
+      "tasks": 20,
+      "utility": 1.0,
+      "utility_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "attack_success": null,
+      "attack_ci95": null,
+      "blocked_calls": 0
+    },
+    "cancel": {
+      "tasks": 20,
+      "utility": 1.0,
+      "utility_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "attack_success": 0.0,
+      "attack_ci95": [
+        0.0,
+        0.16113012549493322
+      ],
+      "blocked_calls": 0
+    },
+    "create": {
+      "tasks": 20,
+      "utility": 1.0,
+      "utility_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "attack_success": 0.0,
+      "attack_ci95": [
+        0.0,
+        0.16113012549493322
+      ],
+      "blocked_calls": 0
+    },
+    "answer": {
+      "tasks": 20,
+      "utility": 0.75,
+      "utility_ci95": [
+        0.5312949900419365,
+        0.888139947210597
+      ],
+      "attack_success": 0.25,
+      "attack_ci95": [
+        0.11186005278940309,
+        0.4687050099580636
+      ],
+      "blocked_calls": 0
+    },
+    "all_attacks": {
+      "tasks": 60,
+      "attack_success": 0.08333333333333333,
+      "attack_ci95": [
+        0.03611992405048589,
+        0.18069168468112481
+      ]
+    }
+  },
+  "overall": {
+    "tasks": 80,
+    "passed": 75,
+    "pass_rate": 0.9375,
+    "ci95": [
+      0.8618967084664824,
+      0.9730110223020145
+    ],
+    "format_failures": 0,
+    "errors": 0,
+    "no_tool_call": 0,
+    "tool_recall": 1.0,
+    "tool_error_rate": 0.0,
+    "unwanted_writes": 0,
+    "median_seconds": 18.475,
+    "median_tokens_in": 5503.0,
+    "median_steps": 2.0
+  },
+  "tiers": {
+    "lookup": {
+      "tasks": 80,
+      "passed": 75,
+      "pass_rate": 0.9375,
+      "ci95": [
+        0.8618967084664824,
+        0.9730110223020145
+      ],
+      "format_failures": 0,
+      "errors": 0,
+      "no_tool_call": 0,
+      "tool_recall": 1.0,
+      "tool_error_rate": 0.0,
+      "unwanted_writes": 0,
+      "median_seconds": 18.475,
+      "median_tokens_in": 5503.0,
+      "median_steps": 2.0
+    }
+  }
+}

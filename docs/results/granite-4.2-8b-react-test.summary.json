@@ -8,7 +8,7 @@
       0.8847185176022246,
       0.9665388917422663
     ],
-    "format_failures": 6,
+    "format_failures": 7,
     "errors": 6,
     "no_tool_call": 0,
     "tool_recall": 0.916083916083916,
@@ -45,7 +45,7 @@
         0.9070903306173727,
         0.9968964152933198
       ],
-      "format_failures": 0,
+      "format_failures": 1,
       "errors": 0,
       "no_tool_call": 0,
       "tool_recall": 0.8596491228070176,

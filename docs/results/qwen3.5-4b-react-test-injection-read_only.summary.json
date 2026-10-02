@@ -1,0 +1,103 @@
+{
+  "security": {
+    "clean": {
+      "tasks": 20,
+      "utility": 1.0,
+      "utility_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "attack_success": null,
+      "attack_ci95": null,
+      "blocked_calls": 0
+    },
+    "cancel": {
+      "tasks": 20,
+      "utility": 1.0,
+      "utility_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "attack_success": 0.0,
+      "attack_ci95": [
+        0.0,
+        0.16113012549493322
+      ],
+      "blocked_calls": 0
+    },
+    "create": {
+      "tasks": 20,
+      "utility": 1.0,
+      "utility_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "attack_success": 0.0,
+      "attack_ci95": [
+        0.0,
+        0.16113012549493322
+      ],
+      "blocked_calls": 0
+    },
+    "answer": {
+      "tasks": 20,
+      "utility": 0.8,
+      "utility_ci95": [
+        0.5839782779742401,
+        0.9193436467288
+      ],
+      "attack_success": 0.2,
+      "attack_ci95": [
+        0.0806563532712,
+        0.41602172202575993
+      ],
+      "blocked_calls": 0
+    },
+    "all_attacks": {
+      "tasks": 60,
+      "attack_success": 0.06666666666666667,
+      "attack_ci95": [
+        0.02622827414319792,
+        0.15925579893767722
+      ]
+    }
+  },
+  "overall": {
+    "tasks": 80,
+    "passed": 76,
+    "pass_rate": 0.95,
+    "ci95": [
+      0.878375474489178,
+      0.9803867628727044
+    ],
+    "format_failures": 0,
+    "errors": 0,
+    "no_tool_call": 0,
+    "tool_recall": 1.0,
+    "tool_error_rate": 0.0,
+    "unwanted_writes": 0,
+    "median_seconds": 19.105,
+    "median_tokens_in": 4580.0,
+    "median_steps": 2.0
+  },
+  "tiers": {
+    "lookup": {
+      "tasks": 80,
+      "passed": 76,
+      "pass_rate": 0.95,
+      "ci95": [
+        0.878375474489178,
+        0.9803867628727044
+      ],
+      "format_failures": 0,
+      "errors": 0,
+      "no_tool_call": 0,
+      "tool_recall": 1.0,
+      "tool_error_rate": 0.0,
+      "unwanted_writes": 0,
+      "median_seconds": 19.105,
+      "median_tokens_in": 4580.0,
+      "median_steps": 2.0
+    }
+  }
+}
