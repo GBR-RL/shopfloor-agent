@@ -20,7 +20,7 @@ import anyio
 
 from shopfloor_agent.agent.graphs import DESIGNS, SYSTEM_PROMPT, Run, make_llm
 from shopfloor_agent.agent.guard import DEFENSES, SPOTLIGHT_NOTE, RequestApprover, spotlight
-from shopfloor_agent.agent.toolkit import Toolkit, plant_servers
+from shopfloor_agent.agent.toolkit import Toolkit, default_render, plant_servers
 from shopfloor_agent.config import Settings
 from shopfloor_agent.eval.check import score, snapshot
 from shopfloor_agent.eval.injection import attack_success
@@ -28,6 +28,7 @@ from shopfloor_agent.eval.tasks import Task
 from shopfloor_agent.servers.store import PlantStore
 
 AgentFn = Callable[[str, Toolkit], Awaitable[Run]]
+RESULT_CHARS = 2000
 
 
 def prepare_episode(base_db: Path, task: Task, workdir: Path) -> Path:
@@ -131,7 +132,15 @@ async def run_episode(
         "tool_errors": sum(c.error is not None for c in calls),
         "tool_recall": (len(called & set(task.tools)) / len(task.tools)) if task.tools else None,
         "calls": [
-            {"name": c.name, "args": c.arguments, "error": c.error, "seconds": round(c.seconds, 3)}
+            {
+                "name": c.name,
+                "args": c.arguments,
+                "error": c.error,
+                "blocked": c.blocked,
+                "seconds": round(c.seconds, 3),
+                # what the agent saw, kept for the judge study (truncated: rows stay small)
+                "result": None if c.error else default_render(c)[:RESULT_CHARS],
+            }
             for c in calls
         ],
     }

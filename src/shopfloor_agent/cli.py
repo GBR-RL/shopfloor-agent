@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -140,6 +140,59 @@ def eval_cmd(
     )
     passed = sum(r["passed"] for r in rows if r["task"] in {t.id for t in tasks})
     typer.echo(f"passed {passed}/{len(tasks)}")
+
+
+@app.command("judge")
+def judge_cmd(
+    run: Annotated[str, typer.Option(help="Benchmark run to grade (results/<run>[.shard-*])")],
+    mode: Annotated[str, typer.Option(help="reference | rubric")] = "rubric",
+    split: Annotated[str, typer.Option(help="dev | test | all")] = "test",
+    limit: Annotated[int | None, typer.Option(help="Only the first N episodes")] = None,
+) -> None:
+    """Grades a run's episodes with the served model as judge and compares the verdicts with
+    the deterministic scores. The judge model is whatever SHOPFLOOR_LLM_* points at."""
+    import anyio
+
+    from shopfloor_agent.agent.graphs import make_llm
+    from shopfloor_agent.eval.judge import agreement, judge, load_questions
+    from shopfloor_agent.eval.report import load_run
+    from shopfloor_agent.eval.runner import load_results
+
+    if mode not in ("reference", "rubric"):
+        raise typer.BadParameter("mode must be reference or rubric")
+    settings = get_settings()
+    files = [*settings.results_dir.glob(f"{run}.jsonl"),
+             *settings.results_dir.glob(f"{run}.shard-*.jsonl")]  # fmt: skip
+    rows = [r for r in load_run(files) if split in ("all", r["split"])][:limit]
+    questions = load_questions([SUITE, Path("tasks/injection.jsonl")])
+    out = settings.results_dir / f"judge-{settings.llm_model}-{mode}-{run}.jsonl"
+    done = {r["task"]: r for r in load_results(out)}
+    llm = make_llm(settings, max_tokens=300)
+
+    async def main() -> list[dict[str, Any]]:
+        graded = []
+        for row in rows:
+            if row["task"] in done:
+                graded.append(done[row["task"]])
+                continue
+            verdict, usage = await judge(llm, row, questions[row["task"]], mode)  # type: ignore[arg-type]
+            entry = {"task": row["task"], "tier": row["tier"], "passed": row["passed"],
+                     "judge_passed": verdict.passed if verdict else None,
+                     "judge_reason": verdict.reason if verdict else None, "mode": mode,
+                     "judge_model": settings.llm_model, "agent_model": row.get("model"),
+                     **usage}  # fmt: skip
+            with out.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(entry) + "\n")
+            graded.append(entry)
+            typer.echo(f"{row['task']} truth={row['passed']} judge={entry['judge_passed']}")
+        return graded
+
+    graded = anyio.run(main)
+    summary = {"overall": agreement(graded)}
+    for tier in sorted({str(g["tier"]) for g in graded}):
+        summary[tier] = agreement([g for g in graded if g["tier"] == tier])
+    out.with_suffix(".summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    typer.echo(json.dumps(summary["overall"], indent=2))
 
 
 @app.command("model-url")
