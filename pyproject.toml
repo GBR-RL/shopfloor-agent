@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "shopfloor-agent"
 version = "0.1.0"
 description = "On-prem maintenance agent: open-weight LLMs on CPU, plant data through MCP servers, deterministic evaluation"
+readme = "README.md"
 license = "MIT"
 authors = [{ name = "Rohiith Gettala Balachandar" }]
 requires-python = ">=3.11"

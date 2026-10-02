@@ -44,22 +44,21 @@ def main() -> int:
     assert "shopfloor_tool_calls_total" in metrics
     assert "shopfloor_llm_tokens_total" in metrics
     if args.jaeger:
-        # Jaeger 2.x query API v3; spans are exported in batches, so allow a few seconds
-        services: list[str] = []
-        for _ in range(30):
-            services = httpx.get(f"{args.jaeger}/api/v3/services", timeout=10).json()["services"]
-            if "shopfloor-agent" in services:
+        # Jaeger 2.x query API v3. Spans are exported in batches and the agent span ends last
+        # (when the stream closes), so poll until the agent, model and tool spans have all
+        # arrived.
+        names: set[str] = set()
+        for _ in range(45):
+            response = httpx.get(f"{args.jaeger}/api/v3/operations",
+                                 params={"service": "shopfloor-agent"}, timeout=10)  # fmt: skip
+            if response.is_success:
+                names = {o["name"] for o in response.json().get("operations", [])}
+            if ("invoke_agent" in names and any(n.startswith("execute_tool ") for n in names)
+                    and any(n.startswith("chat ") for n in names)):  # fmt: skip
                 break
             time.sleep(2)
         else:
-            raise AssertionError(f"no traces in Jaeger (services: {services})")
-        ops = httpx.get(
-            f"{args.jaeger}/api/v3/operations", params={"service": "shopfloor-agent"}, timeout=10
-        ).json()["operations"]
-        names = {o["name"] for o in ops}
-        assert "invoke_agent" in names, names
-        assert any(n.startswith("execute_tool ") for n in names), names
-        assert any(n.startswith("chat ") for n in names), names
+            raise AssertionError(f"agent, model and tool spans not all in Jaeger: {names}")
         print(f"jaeger: operations {sorted(names)}")
     print("smoke test passed:", events[-1].get("answer"))
     return 0
