@@ -38,6 +38,84 @@ def data(data_dir: DataDirOpt = None) -> None:
     typer.echo(json.dumps(counts, indent=2))
 
 
+SUITE = Path("tasks/suite.jsonl")
+
+
+@app.command("tasks")
+def tasks_cmd(out: Annotated[Path, typer.Option()] = SUITE, seed: int = 7) -> None:
+    """Generates the task suite from the plant database (answers computed by SQL)."""
+    from collections import Counter
+
+    from shopfloor_agent.eval.tasks import generate, save
+
+    tasks = generate(get_settings().plant_db, seed=seed)
+    save(tasks, out)
+    typer.echo(f"{len(tasks)} tasks -> {out}")
+    typer.echo(
+        json.dumps(
+            {"tier": Counter(t.tier for t in tasks), "split": Counter(t.split for t in tasks)},
+            indent=2,
+        )
+    )
+
+
+@app.command("eval")
+def eval_cmd(
+    name: Annotated[str, typer.Option(help="Results go to results/<name>.jsonl")],
+    split: Annotated[str, typer.Option(help="dev | test | all")] = "dev",
+    tier: Annotated[str | None, typer.Option(help="Only this tier")] = None,
+    limit: Annotated[int | None, typer.Option(help="Only the first N tasks")] = None,
+    shard: Annotated[str | None, typer.Option(help="INDEX/COUNT of the tasks")] = None,
+    max_steps: Annotated[int, typer.Option(help="Model calls per task")] = 10,
+    read_only: Annotated[bool, typer.Option(help="Leave the write tools out")] = False,
+    suite: Annotated[Path, typer.Option()] = SUITE,
+) -> None:
+    """Runs the agent on the task suite as isolated episodes; resumes an interrupted run."""
+    import anyio
+
+    from shopfloor_agent.eval.runner import react_agent, run_suite
+    from shopfloor_agent.eval.tasks import load
+
+    settings = get_settings()
+    tasks = [t for t in load(suite) if split in ("all", t.split)]
+    if tier:
+        tasks = [t for t in tasks if t.tier == tier]
+    if shard:
+        index, count = (int(v) for v in shard.split("/"))
+        tasks = tasks[index::count]
+        name = f"{name}.shard-{index}-of-{count}"
+    tasks = tasks[:limit] if limit else tasks
+    out = settings.results_dir / f"{name}.jsonl"
+    meta = {
+        "agent": "react",
+        "model": settings.llm_model,
+        "max_steps": max_steps,
+        "read_only": read_only,
+    }
+
+    def report(row: dict[str, object]) -> None:
+        mark = "PASS" if row["passed"] else "FAIL"
+        typer.echo(
+            f"{row['task']} {mark} {row['seconds']:>6.0f}s {row['tool_calls']} calls  "
+            f"{row['reason'] or ''}"
+        )
+
+    typer.echo(f"{len(tasks)} tasks -> {out}")
+    rows = anyio.run(
+        lambda: run_suite(
+            tasks,
+            settings.plant_db,
+            react_agent(settings, max_steps=max_steps),
+            out,
+            read_only=read_only,
+            meta=meta,
+            on_result=report,
+        )
+    )
+    passed = sum(r["passed"] for r in rows if r["task"] in {t.id for t in tasks})
+    typer.echo(f"passed {passed}/{len(tasks)}")
+
+
 @app.command("ask")
 def ask(
     question: str,

@@ -129,7 +129,8 @@ def hours(value: str) -> float | None:
 
 def _rows(path: Path) -> list[dict[str, str]]:
     with path.open(encoding="utf-8-sig", newline="") as f:
-        return [{k.strip(): (v or "").strip() for k, v in r.items() if k} for r in csv.DictReader(f)]
+        rows = csv.DictReader(f)
+        return [{k.strip(): (v or "").strip() for k, v in r.items() if k} for r in rows]
 
 
 def _slug(text: str) -> str:
@@ -191,8 +192,11 @@ def _load(db: sqlite3.Connection, raw: dict[str, Path]) -> dict[str, int]:
             db,
             "components",
             (
-                {"asset_class": r["equipment"], "component": r["component"],
-                 "explanation": r["explanation"]}
+                {
+                    "asset_class": r["equipment"],
+                    "component": r["component"],
+                    "explanation": r["explanation"],
+                }
                 for r in _rows(raw["component.csv"])
             ),
         ),
@@ -262,8 +266,7 @@ def _load(db: sqlite3.Connection, raw: dict[str, Path]) -> dict[str, int]:
         ({"rule_id": r["rule_id"], "name": r["rule_name"]} for r in _rows(raw["alert_rule.csv"])),
     )
     mapping = {
-        (r["rule_id"], r["primary_code"])
-        for r in _rows(raw["alert_rule_failure_code_mapping.csv"])
+        (r["rule_id"], r["primary_code"]) for r in _rows(raw["alert_rule_failure_code_mapping.csv"])
     }
     counts["alert_rule_failure_codes"] = _insert(
         db,
@@ -317,7 +320,11 @@ def _load_telemetry(
                 continue
             sensor_name = key.removeprefix(f"{name} ").strip()
             sensor_id = f"{eq_id}.{_slug(sensor_name)}"
-            sensors[sensor_id] = {"sensor_id": sensor_id, "equipment_id": eq_id, "name": sensor_name}
+            sensors[sensor_id] = {
+                "sensor_id": sensor_id,
+                "equipment_id": eq_id,
+                "name": sensor_name,
+            }
             points.append({"sensor_id": sensor_id, "ts": ts, "value": float(value)})
     return {
         "sensors": _insert(db, "sensors", sorted(sensors.values(), key=lambda s: s["sensor_id"])),

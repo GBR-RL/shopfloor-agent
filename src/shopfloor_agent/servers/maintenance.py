@@ -76,8 +76,8 @@ def _wo_filter(
     return ("WHERE " + " AND ".join(clauses)) if clauses else "", params
 
 
-def create_server(db_path: Path, *, read_only: bool = False) -> MCPServer:
-    store = PlantStore(db_path)
+def create_server(db: Path | PlantStore, *, read_only: bool = False) -> MCPServer:
+    store = db if isinstance(db, PlantStore) else PlantStore(db)
     server = MCPServer(
         "maintenance",
         instructions=(

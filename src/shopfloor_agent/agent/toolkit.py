@@ -21,6 +21,7 @@ from mcp.client import Client
 from mcp.server.mcpserver import MCPServer
 
 from shopfloor_agent.servers import assets, maintenance, reliability, telemetry
+from shopfloor_agent.servers.store import PlantStore
 
 
 @dataclass(slots=True)
@@ -33,12 +34,14 @@ class ToolCall:
     read_only: bool = True
 
 
-def plant_servers(db_path: Path, *, read_only: bool = False) -> list[MCPServer]:
+def plant_servers(db: Path | PlantStore, *, read_only: bool = False) -> list[MCPServer]:
+    """The four plant servers, sharing one database connection."""
+    store = db if isinstance(db, PlantStore) else PlantStore(db)
     return [
-        assets.create_server(db_path),
-        telemetry.create_server(db_path),
-        maintenance.create_server(db_path, read_only=read_only),
-        reliability.create_server(db_path),
+        assets.create_server(store),
+        telemetry.create_server(store),
+        maintenance.create_server(store, read_only=read_only),
+        reliability.create_server(store),
     ]
 
 

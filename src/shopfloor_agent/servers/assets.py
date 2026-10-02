@@ -11,8 +11,8 @@ from shopfloor_agent.servers.maintenance import READ
 from shopfloor_agent.servers.store import PlantStore
 
 
-def create_server(db_path: Path) -> MCPServer:
-    store = PlantStore(db_path)
+def create_server(db: Path | PlantStore) -> MCPServer:
+    store = db if isinstance(db, PlantStore) else PlantStore(db)
     server = MCPServer(
         "assets",
         instructions="Equipment registry: ids, names, asset classes, components and sensors.",
