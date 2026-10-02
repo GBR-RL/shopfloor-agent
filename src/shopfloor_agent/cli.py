@@ -242,6 +242,40 @@ def report_cmd(
     typer.echo(table)
 
 
+@app.command("chart")
+def chart_cmd(
+    kind: Annotated[str, typer.Argument(help="tiers | cost")],
+    run: Annotated[list[str], typer.Option(help="NAME=Label of a run; repeatable, in order")],
+    out: Annotated[Path, typer.Option(help="Writes <out>-light.png and <out>-dark.png")],
+    title: str = "",
+    subtitle: str = "",
+    split: str = "test",
+) -> None:
+    """Charts for the README from run results (light and dark versions)."""
+    from shopfloor_agent.eval.plots import cost_chart, tier_chart
+    from shopfloor_agent.eval.report import load_run, summarize
+
+    settings = get_settings()
+    summaries = {}
+    for spec in run:
+        name, _, label = spec.partition("=")
+        files = [*settings.results_dir.glob(f"{name}.jsonl"),
+                 *settings.results_dir.glob(f"{name}.shard-*.jsonl")]  # fmt: skip
+        rows = [r for r in load_run(files) if split in ("all", r["split"])]
+        if not rows:
+            raise typer.BadParameter(f"no {split} results for run '{name}'")
+        summaries[label or name] = summarize(rows)
+    if kind == "tiers":
+        paths = tier_chart(summaries, out, title=title, subtitle=subtitle)
+    elif kind == "cost":
+        points = {k: (v["overall"]["median_seconds"], v["overall"]["pass_rate"])
+                  for k, v in summaries.items()}  # fmt: skip
+        paths = cost_chart(points, out, title=title, subtitle=subtitle)
+    else:
+        raise typer.BadParameter("kind must be tiers or cost")
+    typer.echo("\n".join(str(p) for p in paths))
+
+
 @app.command("serve")
 def serve(host: str = "127.0.0.1", port: int = 8000) -> None:
     """Runs the HTTP service (event stream, write approvals, /metrics, demo page at /)."""
