@@ -98,3 +98,20 @@ def test_action_create_and_close() -> None:
     ok, why = score_state(close, open_wos, over)
     assert not ok
     assert "WO2" in why
+
+
+def test_rescore_applies_a_stricter_rule_to_saved_rows() -> None:
+    from shopfloor_agent.eval.check import rescore
+
+    row = {"task": "T1", "passed": True, "error": None, "writes": [], "final": "ANSWER: MT001",
+           "reason": "", "answer": "MT001", "format_ok": True}  # fmt: skip
+    lenient = task("text", "Routine Maintenance", aliases=("MT001",))
+    strict = task("text", "Routine Maintenance")
+    assert rescore(lenient, row)["passed"]
+    out = rescore(strict, row)
+    assert not out["passed"]
+    assert "expected Routine Maintenance" in out["reason"]
+    assert not rescore(strict, {**row, "final": "ANSWER: Routine Maintenance",
+                                "writes": ["created WO1"]})["passed"]  # fmt: skip
+    action = Task("W1", "action", "a", "q", "action", {"created": []})
+    assert rescore(action, {**row, "passed": False}) == {**row, "passed": False}

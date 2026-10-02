@@ -242,6 +242,33 @@ def report_cmd(
     typer.echo(table)
 
 
+@app.command("rescore")
+def rescore_cmd(
+    run: Annotated[list[str], typer.Option(help="Run names (results/<name>[.shard-*].jsonl)")],
+    suite: Annotated[Path, typer.Option()] = SUITE,
+) -> None:
+    """Scores saved runs again against the current suite (after a fix to the scoring), in place,
+    and prints how many verdicts changed."""
+    from shopfloor_agent.eval.check import rescore
+    from shopfloor_agent.eval.runner import load_results
+    from shopfloor_agent.eval.tasks import load
+
+    settings = get_settings()
+    tasks = {t.id: t for t in load(suite)}
+    for name in run:
+        files = [*settings.results_dir.glob(f"{name}.jsonl"),
+                 *settings.results_dir.glob(f"{name}.shard-*.jsonl")]  # fmt: skip
+        flipped = []
+        for path in files:
+            rows = load_results(path)
+            new = [rescore(tasks[r["task"]], r) for r in rows]
+            flipped += [n["task"] for o, n in zip(rows, new, strict=True)
+                        if o["passed"] != n["passed"]]  # fmt: skip
+            text = "".join(json.dumps(r, ensure_ascii=False, default=str) + "\n" for r in new)
+            path.write_text(text, encoding="utf-8", newline="\n")
+        typer.echo(f"{name}: {len(set(flipped))} verdicts changed {sorted(set(flipped))}")
+
+
 @app.command("chart")
 def chart_cmd(
     kind: Annotated[str, typer.Argument(help="tiers | cost")],

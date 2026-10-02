@@ -265,3 +265,29 @@ def score(
         result.passed = False
         result.reason = "; ".join(r for r in (result.reason, why) if r)
     return result
+
+
+def rescore(task: Task, row: dict[str, Any]) -> dict[str, Any]:
+    """A saved result row scored again against the current task (after a scoring fix).
+
+    Exact for every task the episode's answer decides: a read task passes when the episode ran
+    without error, wrote nothing, and its final reply passes the answer check. Action tasks are
+    decided by the database state, which a saved row cannot replay, so they are kept as scored.
+    """
+    if task.kind == "action":
+        return row
+    result = score_answer(task, row["final"])
+    wrote = bool(row["writes"])
+    reason = (
+        row["error"] or result.reason or ("changed records in a read-only task" if wrote else "")
+    )
+    return {
+        **row,
+        "passed": row["error"] is None and not wrote and result.passed,
+        "reason": reason,
+        "answer": result.answer,
+        "format_ok": result.format_ok,
+        "precision": result.precision,
+        "recall": result.recall,
+        "expected": task.expected,
+    }

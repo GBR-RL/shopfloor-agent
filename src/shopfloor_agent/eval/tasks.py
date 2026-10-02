@@ -364,8 +364,10 @@ def t_top_code_description(c: Ctx, n: int) -> Iterator[Task]:
             "What is the description of the primary failure code recorded most often on "
             f"corrective work orders of {c.names[eq]} in {year}?"
         )
+        # The question asks for the description: the bare code is not an answer. (An earlier
+        # version accepted it as an alias; the judge study caught that, see README.)
         yield Task("", "multistep", "top_code_description", ask(q, "text"), "text", desc,
-                   params={"equipment": c.names[eq], "year": year}, aliases=(code,),
+                   params={"equipment": c.names[eq], "year": year, "code": code},
                    tools=("count_work_orders", "find_failure_codes"))  # fmt: skip
 
 
