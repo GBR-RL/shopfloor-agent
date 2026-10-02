@@ -173,7 +173,7 @@ def judge_cmd(
     questions = load_questions([SUITE, Path("tasks/injection.jsonl")])
     out = settings.results_dir / f"{name}.jsonl"
     done = {r["task"]: r for r in load_results(out)}
-    llm = make_llm(settings, max_tokens=300)
+    llm = make_llm(settings, max_tokens=700)
 
     async def main() -> list[dict[str, Any]]:
         graded = []

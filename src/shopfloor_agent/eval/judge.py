@@ -35,7 +35,7 @@ REFERENCE_NOTE = "\nThe reference answer (what a correct reply must contain): {e
 
 
 class Verdict(BaseModel):
-    reason: str = Field(description="one or two sentences")
+    reason: str = Field(description="one or two short sentences", max_length=600)
     passed: bool
 
 
@@ -52,12 +52,17 @@ def episode_text(row: dict[str, Any], question: str, limit: int = 1200) -> str:
 
 async def judge(
     llm: ChatOpenAI, row: dict[str, Any], question: str, mode: Mode
-) -> tuple[Verdict | None, dict[str, int]]:
+) -> tuple[Verdict | None, dict[str, Any]]:
     system = JUDGE_PROMPT
     if mode == "reference":
         system += REFERENCE_NOTE.format(expected=json.dumps(row["expected"]))
     grader = llm.with_structured_output(Verdict, method="json_schema", include_raw=True)
-    out = await grader.ainvoke([SystemMessage(system), HumanMessage(episode_text(row, question))])
+    try:
+        out = await grader.ainvoke(
+            [SystemMessage(system), HumanMessage(episode_text(row, question))]
+        )
+    except Exception as exc:  # e.g. a verdict cut off at the token limit: unparsed, not fatal
+        return None, {"tokens_in": 0, "tokens_out": 0, "judge_error": f"{type(exc).__name__}"}
     usage = getattr(out["raw"], "usage_metadata", None) or {}
     return out["parsed"], {"tokens_in": usage.get("input_tokens", 0),
                            "tokens_out": usage.get("output_tokens", 0)}  # fmt: skip
