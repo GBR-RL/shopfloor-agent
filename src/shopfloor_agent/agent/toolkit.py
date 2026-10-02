@@ -72,7 +72,8 @@ ResultHook = Callable[[ToolCall], str]
 def default_render(call: ToolCall) -> str:
     if call.error is not None:
         return f"ERROR: {call.error}"
-    return json.dumps(call.result, ensure_ascii=False, default=str)
+    # compact separators: on a CPU every prompt token costs time
+    return json.dumps(call.result, ensure_ascii=False, default=str, separators=(",", ":"))
 
 
 @dataclass

@@ -11,7 +11,7 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from shopfloor_agent.agent.react import Run
+from shopfloor_agent.agent.graphs import Run
 from shopfloor_agent.agent.toolkit import Toolkit
 from shopfloor_agent.eval.tasks import Task
 

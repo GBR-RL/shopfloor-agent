@@ -44,7 +44,7 @@ async def test_toolkit_records_calls_and_exposes_tiers(plant_db: Path) -> None:
         assert not kit.is_read_only("close_work_order")
         tool = next(t for t in kit.tools if t.name == "count_work_orders")
         text = await tool.ainvoke({"group_by": "year", "equipment": "Chiller 6"})
-        assert '"group_by": "year"' in text
+        assert '"group_by":"year"' in text  # compact JSON
         await kit.call("get_work_order", {"wo_id": "nope"})
     first, second = kit.calls
     assert first.name == "count_work_orders"

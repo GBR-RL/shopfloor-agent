@@ -62,6 +62,9 @@ def tasks_cmd(out: Annotated[Path, typer.Option()] = SUITE, seed: int = 7) -> No
 @app.command("eval")
 def eval_cmd(
     name: Annotated[str, typer.Option(help="Results go to results/<name>.jsonl")],
+    agent: Annotated[str, typer.Option(help="react | plan_execute | react_verify | oracle")] = (
+        "react"
+    ),
     split: Annotated[str, typer.Option(help="dev | test | all")] = "dev",
     tier: Annotated[str | None, typer.Option(help="Only this tier")] = None,
     limit: Annotated[int | None, typer.Option(help="Only the first N tasks")] = None,
@@ -73,7 +76,8 @@ def eval_cmd(
     """Runs the agent on the task suite as isolated episodes; resumes an interrupted run."""
     import anyio
 
-    from shopfloor_agent.eval.runner import react_agent, run_suite
+    from shopfloor_agent.eval.oracle import oracle_for
+    from shopfloor_agent.eval.runner import make_agent, run_suite
     from shopfloor_agent.eval.tasks import load
 
     settings = get_settings()
@@ -87,7 +91,7 @@ def eval_cmd(
     tasks = tasks[:limit] if limit else tasks
     out = settings.results_dir / f"{name}.jsonl"
     meta = {
-        "agent": "react",
+        "agent": agent,
         "model": settings.llm_model,
         "max_steps": max_steps,
         "read_only": read_only,
@@ -105,7 +109,9 @@ def eval_cmd(
         lambda: run_suite(
             tasks,
             settings.plant_db,
-            react_agent(settings, max_steps=max_steps),
+            oracle_for(tasks)
+            if agent == "oracle"
+            else make_agent(settings, agent, max_steps=max_steps),
             out,
             read_only=read_only,
             meta=meta,
@@ -116,23 +122,64 @@ def eval_cmd(
     typer.echo(f"passed {passed}/{len(tasks)}")
 
 
+@app.command("model-url")
+def model_url(name: str) -> None:
+    """Prints the download URL of a benchmark model (used by the CI workflows)."""
+    from shopfloor_agent.models import MODELS
+
+    if name not in MODELS:
+        raise typer.BadParameter(f"unknown model '{name}' ({', '.join(MODELS)})")
+    typer.echo(MODELS[name].url)
+
+
+@app.command("report")
+def report_cmd(
+    run: Annotated[list[str], typer.Option(help="Run names (results/<name>[.shard-*].jsonl)")],
+    split: Annotated[str, typer.Option(help="dev | test | all")] = "test",
+    out: Annotated[Path, typer.Option(help="Writes <out>.json and <out>.md")] = Path(
+        "results/report"
+    ),
+) -> None:
+    """Pass rates per tier with 95 % intervals, tool use and cost, one row per run."""
+    from shopfloor_agent.eval.report import load_run, markdown, summarize
+
+    settings = get_settings()
+    summaries = {}
+    for name in run:
+        files = [*settings.results_dir.glob(f"{name}.jsonl"),
+                 *settings.results_dir.glob(f"{name}.shard-*.jsonl")]  # fmt: skip
+        rows = load_run(files)
+        rows = [r for r in rows if split in ("all", r["split"])]
+        if not rows:
+            raise typer.BadParameter(f"no {split} results for run '{name}'")
+        summaries[name] = summarize(rows)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.with_suffix(".json").write_text(json.dumps(summaries, indent=2), encoding="utf-8")
+    table = markdown(summaries)
+    out.with_suffix(".md").write_text(table, encoding="utf-8")
+    typer.echo(table)
+
+
 @app.command("ask")
 def ask(
     question: str,
     max_steps: Annotated[int, typer.Option(help="Model calls before giving up")] = 10,
     read_only: Annotated[bool, typer.Option(help="Leave the write tools out")] = False,
+    agent: Annotated[str, typer.Option(help="react | plan_execute | react_verify")] = "react",
 ) -> None:
-    """Answers one question with the ReAct agent and prints the tool calls it made."""
+    """Answers one question and prints the tool calls the agent made."""
     import anyio
 
-    from shopfloor_agent.agent.react import make_llm, run_react
+    from shopfloor_agent.agent.graphs import DESIGNS, make_llm
     from shopfloor_agent.agent.toolkit import Toolkit, plant_servers
 
     settings = get_settings()
 
     async def main() -> None:
         async with Toolkit(plant_servers(settings.plant_db, read_only=read_only)) as kit:
-            run = await run_react(question, kit, make_llm(settings), max_steps=max_steps)
+            run = await DESIGNS[agent](question, kit, make_llm(settings), max_steps=max_steps)
+            if run.notes:
+                typer.echo(json.dumps(run.notes, indent=1))
             for c in kit.calls:
                 outcome = f"ERROR {c.error}" if c.error else str(c.result)[:160]
                 typer.echo(f"  {c.name}({json.dumps(c.arguments)}) -> {outcome}")

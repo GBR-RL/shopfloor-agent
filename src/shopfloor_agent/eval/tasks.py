@@ -604,7 +604,8 @@ def generate(db_path: Path, seed: int = 7) -> list[Task]:
 
 def save(tasks: list[Task], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("".join(t.to_json() + "\n" for t in tasks), encoding="utf-8")
+    text = "".join(t.to_json() + "\n" for t in tasks)
+    path.write_text(text, encoding="utf-8", newline="\n")  # the same bytes on every OS
 
 
 def load(path: Path) -> list[Task]:

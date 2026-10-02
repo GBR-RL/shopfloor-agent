@@ -18,7 +18,7 @@ from typing import Any
 
 import anyio
 
-from shopfloor_agent.agent.react import Run, make_llm, run_react
+from shopfloor_agent.agent.graphs import DESIGNS, Run, make_llm
 from shopfloor_agent.agent.toolkit import Toolkit, plant_servers
 from shopfloor_agent.config import Settings
 from shopfloor_agent.eval.check import score, snapshot
@@ -97,6 +97,7 @@ async def run_episode(
         "seconds": round(time.perf_counter() - start, 2),
         "tokens_in": run.tokens_in if run else 0,
         "tokens_out": run.tokens_out if run else 0,
+        "notes": run.notes if run else {},
         "tool_calls": len(calls),
         "tool_errors": sum(c.error is not None for c in calls),
         "tool_recall": (len(called & set(task.tools)) / len(task.tools)) if task.tools else None,
@@ -107,11 +108,13 @@ async def run_episode(
     }
 
 
-def react_agent(settings: Settings, *, max_steps: int = 10) -> AgentFn:
-    llm = make_llm(settings)
+def make_agent(settings: Settings, design: str = "react", *, max_steps: int = 10) -> AgentFn:
+    if design not in DESIGNS:
+        raise ValueError(f"unknown agent design '{design}' ({', '.join(DESIGNS)})")
+    run_design, llm = DESIGNS[design], make_llm(settings)
 
     async def agent(question: str, kit: Toolkit) -> Run:
-        return await run_react(question, kit, llm, max_steps=max_steps)
+        return await run_design(question, kit, llm, max_steps=max_steps)
 
     return agent
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from conftest import PLANT_DB, needs_data
-from shopfloor_agent.agent.react import Run
+from shopfloor_agent.agent.graphs import Run
 from shopfloor_agent.agent.toolkit import Toolkit
 from shopfloor_agent.eval.oracle import oracle_for
 from shopfloor_agent.eval.runner import run_episode
