@@ -22,7 +22,7 @@ on:
         description: Parallel runners (each takes every n-th task)
         default: "8"
       max_steps:
-        default: "10"
+        default: "16"
       label:
         description: Optional suffix for the run name
         default: ""

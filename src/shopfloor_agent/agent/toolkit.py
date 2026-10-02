@@ -87,6 +87,7 @@ class Toolkit:
     approve: ApprovalHook | None = None
     calls: list[ToolCall] = field(default_factory=list)
     tools: list[StructuredTool] = field(default_factory=list)
+    instructions: dict[str, str] = field(default_factory=dict)  # per server, from MCP init
     _clients: dict[str, Client] = field(default_factory=dict)
     _read_only: dict[str, bool] = field(default_factory=dict)
     _stack: AsyncExitStack = field(default_factory=AsyncExitStack)
@@ -94,6 +95,8 @@ class Toolkit:
     async def __aenter__(self) -> Toolkit:
         for server in self.servers:
             client = await self._stack.enter_async_context(Client(server))
+            if client.instructions:
+                self.instructions[server.name or "server"] = " ".join(client.instructions.split())
             for tool in (await client.list_tools()).tools:
                 if tool.name in self._clients:
                     raise ValueError(f"tool '{tool.name}' is defined by two servers")

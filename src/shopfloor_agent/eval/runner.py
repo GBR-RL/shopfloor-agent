@@ -147,7 +147,7 @@ async def run_episode(
 
 
 def make_agent(
-    settings: Settings, design: str = "react", *, max_steps: int = 10, defense: str = "none"
+    settings: Settings, design: str = "react", *, max_steps: int = 16, defense: str = "none"
 ) -> AgentFn:
     if design not in DESIGNS:
         raise ValueError(f"unknown agent design '{design}' ({', '.join(DESIGNS)})")

@@ -71,8 +71,14 @@ def _wo_filter(
         clauses.append("primary_code = ?")
         params.append(primary_code.upper())
     if status:
-        clauses.append("status = ?")
-        params.append(status.upper())
+        wanted = OPEN_STATUSES if status.strip().lower() == "open" else (status.strip().upper(),)
+        unknown = set(wanted) - set(STATUSES)
+        if unknown:
+            raise ToolError(
+                f"unknown status '{status}'; use 'open' or one of {', '.join(STATUSES)}"
+            )
+        clauses.append(f"status IN ({', '.join('?' * len(wanted))})")
+        params.extend(wanted)
     return ("WHERE " + " AND ".join(clauses)) if clauses else "", params
 
 
@@ -99,7 +105,9 @@ def create_server(db: Path | PlantStore, *, read_only: bool = False) -> MCPServe
         limit: int = 20,
     ) -> dict[str, Any]:
         """Find work orders by equipment, date range, type, component, failure code or status.
-        Returns the total match count and up to `limit` work orders, newest first."""
+        status: 'open' (any of WAPPR waiting approval, APPR approved, INPRG in progress) or one
+        of WAPPR, APPR, INPRG, COMP, CLOSE, CAN. Returns the total match count and up to `limit`
+        work orders (max 50), newest first."""
         where, params = _wo_filter(
             store, equipment, start, end, work_type, component, primary_code, status
         )
@@ -121,7 +129,8 @@ def create_server(db: Path | PlantStore, *, read_only: bool = False) -> MCPServe
         component: str | None = None,
     ) -> dict[str, Any]:
         """Count work orders grouped by work_type, component, primary_code, year, month or status,
-        with the same filters as search_work_orders."""
+        with the same filters as search_work_orders. Without start and end it covers the whole
+        history (2010-2023), e.g. group_by='year' compares all years in one call."""
         where, params = _wo_filter(store, equipment, start, end, work_type, component, None, None)
         key = _GROUP_SQL[group_by]
         rows = store.query(
@@ -256,7 +265,10 @@ def create_server(db: Path | PlantStore, *, read_only: bool = False) -> MCPServe
         if primary_code and not store.query(
             "SELECT 1 FROM failure_codes WHERE primary_code = ? LIMIT 1", [primary_code.upper()]
         ):
-            raise ToolError(f"unknown failure code '{primary_code}'")
+            raise ToolError(
+                f"unknown failure code '{primary_code}': primary_code takes a failure code such "
+                "as 'M006' (look codes up with find_failure_codes); leave it out if unsure"
+            )
         # Numeric ids continue after the highest existing one (ids differ in length, so compare
         # numbers, not strings).
         last = store.query("SELECT MAX(CAST(substr(wo_id, 3) AS INTEGER)) AS m FROM work_orders")

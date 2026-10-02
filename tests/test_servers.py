@@ -178,3 +178,33 @@ async def test_assets_and_reliability(plant_db: Path) -> None:
     err, text = await call(server, "list_failure_modes", asset_class="boiler")
     assert err
     assert "chiller" in text
+
+
+async def test_open_status_filter_and_guiding_errors(plant_db: Path) -> None:
+    server = maintenance.create_server(plant_db)
+    for status in ("INPRG", "APPR"):
+        err, out = await call(
+            server,
+            "create_work_order",
+            equipment="Chiller 2",
+            description="Replace belt",
+            work_type="CM",
+            priority=3,
+        )
+        await call(server, "update_work_order", wo_id=out["created"], status=status)
+    err, out = await call(server, "search_work_orders", equipment="Chiller 2", status="open")
+    assert out["total"] == 2  # both, whatever their open status
+    err, text = await call(server, "search_work_orders", status="pending")
+    assert err
+    assert "'open'" in text
+    err, text = await call(
+        server,
+        "create_work_order",
+        equipment="Chiller 2",
+        description="x",
+        work_type="CM",
+        priority=2,
+        primary_code="RUL0022",
+    )
+    assert err
+    assert "find_failure_codes" in text  # the error says how to recover

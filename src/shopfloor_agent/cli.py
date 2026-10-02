@@ -83,7 +83,7 @@ def eval_cmd(
     tier: Annotated[str | None, typer.Option(help="Only this tier")] = None,
     limit: Annotated[int | None, typer.Option(help="Only the first N tasks")] = None,
     shard: Annotated[str | None, typer.Option(help="INDEX/COUNT of the tasks")] = None,
-    max_steps: Annotated[int, typer.Option(help="Model calls per task")] = 10,
+    max_steps: Annotated[int, typer.Option(help="Model calls per task")] = 16,
     read_only: Annotated[bool, typer.Option(help="Leave the write tools out")] = False,
     defense: Annotated[str, typer.Option(help="none | spotlight | read_only | approval")] = "none",
     suite: Annotated[Path, typer.Option()] = SUITE,
@@ -236,7 +236,7 @@ def report_cmd(
 @app.command("ask")
 def ask(
     question: str,
-    max_steps: Annotated[int, typer.Option(help="Model calls before giving up")] = 10,
+    max_steps: Annotated[int, typer.Option(help="Model calls before giving up")] = 16,
     read_only: Annotated[bool, typer.Option(help="Leave the write tools out")] = False,
     agent: Annotated[str, typer.Option(help="react | plan_execute | react_verify")] = "react",
 ) -> None:

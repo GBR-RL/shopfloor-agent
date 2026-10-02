@@ -71,7 +71,7 @@ def create_server(db: Path | PlantStore) -> MCPServer:
 
     @server.tool(annotations=READ)
     def list_alert_rules() -> dict[str, Any]:
-        """All alert rules (id and name)."""
+        """All 19 alert rules with id and name; use it to find a rule id from its name."""
         return {"alert_rules": store.query("SELECT rule_id, name FROM alert_rules ORDER BY 1")}
 
     @server.tool(annotations=READ)

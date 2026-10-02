@@ -83,6 +83,14 @@ def _final(messages: list[AnyMessage]) -> str:
     return last.text if isinstance(last, AIMessage) and not last.tool_calls else ""
 
 
+def with_server_notes(system: str, kit: Toolkit) -> str:
+    """The system prompt plus each MCP server's instructions (sent at session start)."""
+    if not kit.instructions:
+        return system
+    notes = "\n".join(f"- {name}: {text}" for name, text in kit.instructions.items())
+    return f"{system}\n\nTool servers:\n{notes}"
+
+
 def react_graph(kit: Toolkit, llm: ChatOpenAI, max_steps: int) -> Any:
     model = llm.bind_tools(kit.tools)
     tools = {t.name: t for t in kit.tools}
@@ -132,12 +140,14 @@ async def run_react(
     kit: Toolkit,
     llm: ChatOpenAI,
     *,
-    max_steps: int = 10,
+    max_steps: int = 16,
     system: str = SYSTEM_PROMPT,
 ) -> Run:
     start = time.perf_counter()
     app = react_graph(kit, llm, max_steps)
-    state = await _loop(app, [SystemMessage(system), HumanMessage(question)], 0, max_steps)
+    state = await _loop(
+        app, [SystemMessage(with_server_notes(system, kit)), HumanMessage(question)], 0, max_steps
+    )
     answer = _final(state["messages"])
     tin, tout = _usage(state["messages"])
     return Run(answer, state["steps"], time.perf_counter() - start, tin, tout,
@@ -161,7 +171,7 @@ async def run_plan_execute(
     kit: Toolkit,
     llm: ChatOpenAI,
     *,
-    max_steps: int = 10,
+    max_steps: int = 16,
     system: str = SYSTEM_PROMPT,
 ) -> Run:
     start = time.perf_counter()
@@ -175,7 +185,9 @@ async def run_plan_execute(
     planned = "\n".join(f"{i}. {s}" for i, s in enumerate(steps, 1)) or "(no plan)"
     system = f"{system}\n\nFollow this plan, adapting it if a tool result requires:\n{planned}"
     app = react_graph(kit, llm, max_steps)
-    state = await _loop(app, [SystemMessage(system), HumanMessage(question)], 1, max_steps)
+    state = await _loop(
+        app, [SystemMessage(with_server_notes(system, kit)), HumanMessage(question)], 1, max_steps
+    )
     answer = _final(state["messages"])
     tin, tout = _usage([out["raw"], *state["messages"]])
     return Run(answer, state["steps"], time.perf_counter() - start, tin, tout,
@@ -212,12 +224,14 @@ async def run_react_verify(
     kit: Toolkit,
     llm: ChatOpenAI,
     *,
-    max_steps: int = 10,
+    max_steps: int = 16,
     system: str = SYSTEM_PROMPT,
 ) -> Run:
     start = time.perf_counter()
     app = react_graph(kit, llm, max_steps)
-    state = await _loop(app, [SystemMessage(system), HumanMessage(question)], 0, max_steps)
+    state = await _loop(
+        app, [SystemMessage(with_server_notes(system, kit)), HumanMessage(question)], 0, max_steps
+    )
     reviewer = llm.with_structured_output(Review, method="json_schema", include_raw=True)
     extra: list[BaseMessage] = []
     verdicts = []
