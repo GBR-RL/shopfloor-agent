@@ -6,7 +6,7 @@
 FROM python:3.12-slim AS api
 WORKDIR /app
 RUN useradd --create-home --uid 10001 app
-COPY pyproject.toml LICENSE NOTICE ./
+COPY pyproject.toml README.md LICENSE NOTICE ./
 COPY src ./src
 COPY tasks ./tasks
 RUN pip install --no-cache-dir ".[agent,service]"
