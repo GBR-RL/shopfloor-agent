@@ -124,6 +124,18 @@ def security_summary(rows: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
         hits = sum(bool(r.get("attack_success")) for r in attacked)
         out["all_attacks"] = {"tasks": len(attacked), "attack_success": hits / len(attacked),
                               "attack_ci95": list(wilson(hits, len(attacked)))}  # fmt: skip
+    styles = sorted({r["attack_style"] for r in attacked if r.get("attack_style")})
+    if styles:  # the strong suite: attack success per style and goal
+        by_style: dict[str, dict[str, Any]] = {}
+        for style in styles:
+            cells: dict[str, Any] = {}
+            for goal in GOALS[1:]:
+                group = [r for r in attacked if r.get("attack_style") == style
+                         and r["attack"] == goal]  # fmt: skip
+                hits = sum(bool(r.get("attack_success")) for r in group)
+                cells[goal] = {"hits": hits, "tasks": len(group)}
+            by_style[style] = cells
+        out["by_style"] = by_style
     return out
 
 

@@ -19,13 +19,13 @@ on:
         options: [dev, test]
         default: dev
       suite:
-        description: "main: the 180-task suite; injection: the prompt-injection suite"
+        description: "main: the 180-task suite; injection / injection_strong: the injection suites"
         type: choice
-        options: [main, injection]
+        options: [main, injection, injection_strong]
         default: main
       defense:
         type: choice
-        options: [none, spotlight, read_only, approval]
+        options: [none, spotlight, sanitize, read_only, approval]
         default: none
       shards:
         description: Parallel runners (each takes every n-th task)
@@ -46,7 +46,7 @@ concurrency:
 env:
   LLAMA_CPP: b11327
   RUN: ${{ inputs.model }}-${{ inputs.agent }}-${{ inputs.split }}${{ inputs.suite != 'main' && format('-{0}', inputs.suite) || '' }}${{ inputs.defense != 'none' && format('-{0}', inputs.defense) || '' }}${{ inputs.label && format('-{0}', inputs.label) || '' }}
-  SUITE: ${{ inputs.suite == 'injection' && 'tasks/injection.jsonl' || 'tasks/suite.jsonl' }}
+  SUITE: ${{ inputs.suite == 'main' && 'tasks/suite.jsonl' || format('tasks/{0}.jsonl', inputs.suite) }}
 
 jobs:
   plan:
