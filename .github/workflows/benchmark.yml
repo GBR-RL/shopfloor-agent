@@ -18,6 +18,15 @@ on:
         type: choice
         options: [dev, test]
         default: dev
+      suite:
+        description: "main: the 180-task suite; injection: the prompt-injection suite"
+        type: choice
+        options: [main, injection]
+        default: main
+      defense:
+        type: choice
+        options: [none, spotlight, read_only, approval]
+        default: none
       shards:
         description: Parallel runners (each takes every n-th task)
         default: "8"
@@ -31,12 +40,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: benchmark-${{ inputs.model }}-${{ inputs.agent }}-${{ inputs.split }}${{ inputs.label }}
+  group: benchmark-${{ inputs.model }}-${{ inputs.agent }}-${{ inputs.split }}-${{ inputs.suite }}-${{ inputs.defense }}${{ inputs.label }}
   cancel-in-progress: false
 
 env:
   LLAMA_CPP: b11327
-  RUN: ${{ inputs.model }}-${{ inputs.agent }}-${{ inputs.split }}${{ inputs.label && format('-{0}', inputs.label) || '' }}
+  RUN: ${{ inputs.model }}-${{ inputs.agent }}-${{ inputs.split }}${{ inputs.suite != 'main' && format('-{0}', inputs.suite) || '' }}${{ inputs.defense != 'none' && format('-{0}', inputs.defense) || '' }}${{ inputs.label && format('-{0}', inputs.label) || '' }}
+  SUITE: ${{ inputs.suite == 'injection' && 'tasks/injection.jsonl' || 'tasks/suite.jsonl' }}
 
 jobs:
   plan:
@@ -101,6 +111,7 @@ jobs:
           SHOPFLOOR_LLM_MODEL: ${{ inputs.model }}
         run: |
           shopfloor eval --name "$RUN" --agent "${{ inputs.agent }}" --split "${{ inputs.split }}" \
+            --suite "$SUITE" --defense "${{ inputs.defense }}" \
             --max-steps "${{ inputs.max_steps }}" --shard "${{ matrix.shard }}/${{ inputs.shards }}"
       - if: always()
         uses: actions/upload-artifact@v4

@@ -31,3 +31,20 @@ def test_episode_text_shows_calls_and_reply() -> None:
     text = episode_text(row, "Which code is on WO1?")
     assert 'get_work_order({"wo_id": "WO1"}) -> {"primary_code":"M006"}' in text
     assert text.endswith("ANSWER: M006")
+
+
+def test_security_summary() -> None:
+    from shopfloor_agent.eval.report import security_summary
+
+    def row(attack: str | None, passed: bool, hit: bool | None) -> dict[str, object]:
+        return {"source": "injection:L001", "attack": attack, "passed": passed,
+                "attack_success": hit, "blocked_calls": 0}  # fmt: skip
+
+    rows = [row(None, True, None), row(None, False, None), row("cancel", False, True),
+            row("cancel", True, False), row("answer", False, True)]  # fmt: skip
+    s = security_summary(rows)
+    assert s is not None
+    assert s["clean"]["utility"] == 0.5
+    assert s["cancel"]["attack_success"] == 0.5
+    assert s["all_attacks"]["attack_success"] == pytest.approx(2 / 3)
+    assert security_summary([{"source": "generated"}]) is None

@@ -148,6 +148,7 @@ def judge_cmd(
     mode: Annotated[str, typer.Option(help="reference | rubric")] = "rubric",
     split: Annotated[str, typer.Option(help="dev | test | all")] = "test",
     limit: Annotated[int | None, typer.Option(help="Only the first N episodes")] = None,
+    shard: Annotated[str | None, typer.Option(help="INDEX/COUNT of the episodes")] = None,
 ) -> None:
     """Grades a run's episodes with the served model as judge and compares the verdicts with
     the deterministic scores. The judge model is whatever SHOPFLOOR_LLM_* points at."""
@@ -164,8 +165,13 @@ def judge_cmd(
     files = [*settings.results_dir.glob(f"{run}.jsonl"),
              *settings.results_dir.glob(f"{run}.shard-*.jsonl")]  # fmt: skip
     rows = [r for r in load_run(files) if split in ("all", r["split"])][:limit]
+    name = f"judge-{settings.llm_model}-{mode}-{run}"
+    if shard:
+        index, count = (int(v) for v in shard.split("/"))
+        rows = rows[index::count]
+        name = f"{name}.shard-{index}-of-{count}"
     questions = load_questions([SUITE, Path("tasks/injection.jsonl")])
-    out = settings.results_dir / f"judge-{settings.llm_model}-{mode}-{run}.jsonl"
+    out = settings.results_dir / f"{name}.jsonl"
     done = {r["task"]: r for r in load_results(out)}
     llm = make_llm(settings, max_tokens=300)
 
@@ -216,7 +222,7 @@ def report_cmd(
     ),
 ) -> None:
     """Pass rates per tier with 95 % intervals, tool use and cost, one row per run."""
-    from shopfloor_agent.eval.report import load_run, markdown, summarize
+    from shopfloor_agent.eval.report import load_run, markdown, security_markdown, summarize
 
     settings = get_settings()
     summaries = {}
@@ -231,7 +237,7 @@ def report_cmd(
     out.parent.mkdir(parents=True, exist_ok=True)
     # names like "granite-4.2-3b" contain dots, so append extensions instead of with_suffix
     Path(f"{out}.json").write_text(json.dumps(summaries, indent=2), encoding="utf-8")
-    table = markdown(summaries)
+    table = markdown(summaries) + "\n" + security_markdown(summaries)
     Path(f"{out}.md").write_text(table, encoding="utf-8")
     typer.echo(table)
 

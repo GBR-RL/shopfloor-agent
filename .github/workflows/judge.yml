@@ -1,0 +1,103 @@
+name: Judge
+
+# Grades the episodes of a finished benchmark run with a local judge model and compares the
+# verdicts with the deterministic scores. Manual trigger only; standard runners.
+on:
+  workflow_dispatch:
+    inputs:
+      benchmark_run_id:
+        description: Actions run id of the benchmark run to grade
+        required: true
+      run_name:
+        description: Its run name, e.g. granite-4.2-3b-react-test
+        required: true
+      judge_model:
+        type: choice
+        options: [granite-4.2-3b, granite-4.2-8b, qwen3.5-4b, qwen3.5-9b]
+        default: qwen3.5-9b
+      mode:
+        type: choice
+        options: [rubric, reference]
+        default: rubric
+      shards:
+        default: "8"
+
+permissions:
+  contents: read
+  actions: read  # to download the benchmark run's artifact
+
+env:
+  LLAMA_CPP: b11327
+  NAME: judge-${{ inputs.judge_model }}-${{ inputs.mode }}-${{ inputs.run_name }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      shards: ${{ steps.shards.outputs.list }}
+    steps:
+      - id: shards
+        run: python3 -c "print('list=' + str(list(range(int('${{ inputs.shards }}')))))" >> "$GITHUB_OUTPUT"
+
+  judge:
+    needs: plan
+    name: Shard ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install -e ".[agent]"
+      - uses: actions/download-artifact@v4
+        with:
+          name: run-${{ inputs.run_name }}
+          run-id: ${{ inputs.benchmark_run_id }}
+          github-token: ${{ github.token }}
+          path: results
+      - name: llama.cpp (pinned release, CPU build)
+        id: llama
+        uses: actions/cache@v4
+        with:
+          path: llama
+          key: llama-cpp-${{ env.LLAMA_CPP }}-ubuntu-x64
+      - if: steps.llama.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p llama
+          curl -sSfL "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_CPP/llama-$LLAMA_CPP-bin-ubuntu-x64.tar.gz" \
+            | tar -xz -C llama
+      - name: Judge model
+        run: |
+          mkdir -p models
+          curl -sSfL --retry 3 -o models/model.gguf "$(shopfloor model-url '${{ inputs.judge_model }}')"
+      - name: Start llama-server
+        run: |
+          server=$(find llama -name llama-server -type f | head -1)
+          export LD_LIBRARY_PATH="$(dirname "$server"):$LD_LIBRARY_PATH"
+          nohup "$server" -m models/model.gguf --jinja -c 16384 -t "$(nproc)" -np 1 \
+            --host 127.0.0.1 --port 8081 > server.log 2>&1 &
+          for i in $(seq 1 120); do
+            curl -sf http://127.0.0.1:8081/health && break
+            sleep 2
+          done
+      - name: Grade
+        env:
+          SHOPFLOOR_LLM_MODEL: ${{ inputs.judge_model }}
+        run: |
+          shopfloor judge --run "${{ inputs.run_name }}" --mode "${{ inputs.mode }}" --split test \
+            --shard "${{ matrix.shard }}/${{ inputs.shards }}"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}-${{ matrix.shard }}
+          path: |
+            results/judge-*.jsonl
+            server.log
+          retention-days: 90
