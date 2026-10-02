@@ -19,20 +19,28 @@ the timings on the page are real.*
 |---|---|---|---|---|---|---|---|
 | Qwen3.5-4B | **143 / 143 = 100%** (97–100%) | 30 / 30 | 57 / 57 | 22 / 22 | 22 / 22 | 12 / 12 | 38 |
 | Granite 4.2 3B | **110 / 143 = 77%** (69–83%) | 30 / 30 | 47 / 57 | 8 / 22 | 15 / 22 | 10 / 12 | 66 |
+| Qwen3.5-9B | **136 / 143 = 95%** (90–98%) | 30 / 30 | 55 / 57 | 20 / 22 | 22 / 22 | 9 / 12 | 51 |
 | Granite 4.2 8B | running | | | | | | |
-| Qwen3.5-9B | running | | | | | | |
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/test-models-dark.png">
-  <img alt="Pass rate by task tier on the test split for Granite 4.2 3B and Qwen3.5-4B" src="docs/assets/test-models-light.png">
+  <img alt="Pass rate by task tier on the test split for Granite 4.2 3B, Qwen3.5-4B and Qwen3.5-9B" src="docs/assets/test-models-light.png">
 </picture>
 
-Both models handle one-call lookups perfectly; they separate where a task needs several
+All models handle one-call lookups perfectly; they separate where a task needs several
 dependent calls. **Qwen3.5-4B solves the whole test split.** It issues tool calls in parallel
 (the fleet-wide questions take 12–14 calls in about 6 model steps), reads a search's `total`
 field instead of counting the rows it was shown, still solved all 7 tasks in which one of its
 tool calls failed, and answers "none" whenever the data cannot answer. For this model the
 suite is at its ceiling.
+
+**The 9B model is not better than the 4B one here.** Its 7 failures are mostly about the
+contract, not the reasoning: 3 times it correctly said a work order has no technician field
+but wrote the explanation into the `ANSWER:` line instead of `none`; twice, on the verbatim
+AssetOpsBench event summaries, it listed only the groups with events and left out the ones
+with zero; once llama.cpp could not parse its tool call; once it stopped without an answer.
+The scoring rules were fixed before the runs and are applied as written; reading the three
+abstentions leniently would make it 139 / 143.
 
 **Granite 4.2 3B fails 33 tasks, and how it fails is consistent:**
 
@@ -47,7 +55,7 @@ suite is at its ceiling.
 
 15 of its 33 failures contain the same tool call with the same arguments twice or more,
 against 4 of its 110 passes, so a repeated identical call is a cheap, observable early
-warning that an episode is going wrong. Neither model wrote anything in a read task.
+warning that an episode is going wrong. No model wrote anything in a read task.
 
 **Tool descriptions are prompts (dev split, Granite 4.2 3B):**
 
