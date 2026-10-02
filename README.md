@@ -115,6 +115,9 @@ the same budget the multi-step tasks already exhaust.
 or ReAct, and runs that design with the remaining 15 calls. The router's prompt says when a
 request needs one call's result before the next can be made. It was revised once after the dev
 run (25 of 37 with either version, against 24 for ReAct) and then run once on the test split.
+Its examples (the most frequent alert, the busiest day) resemble the suite's question types,
+and dev and test share those types. That gives the router an advantage it would not have on
+new kinds of request.
 
 - **It keeps ReAct's lookups and adds part of the planner's multi-step gain.** On the same tasks
   as ReAct it wins 12 and loses 4. That is the best overall score, but not a proven gain: an
