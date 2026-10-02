@@ -18,17 +18,30 @@ the timings on the page are real.*
 | Model (4-bit GGUF) | Pass rate (95% CI) | Lookup | Aggregate | Multi-step | Action | Unanswerable | Median s / task |
 |---|---|---|---|---|---|---|---|
 | Qwen3.5-4B | **143 / 143 = 100%** (97–100%) | 30 / 30 | 57 / 57 | 22 / 22 | 22 / 22 | 12 / 12 | 38 |
-| Granite 4.2 3B | **110 / 143 = 77%** (69–83%) | 30 / 30 | 47 / 57 | 8 / 22 | 15 / 22 | 10 / 12 | 66 |
 | Qwen3.5-9B | **136 / 143 = 95%** (90–98%) | 30 / 30 | 55 / 57 | 20 / 22 | 22 / 22 | 9 / 12 | 51 |
-| Granite 4.2 8B | running | | | | | | |
+| Granite 4.2 8B | **134 / 143 = 94%** (88–97%) | 30 / 30 | 56 / 57 | 16 / 22 | 20 / 22 | 12 / 12 | 117 |
+| Granite 4.2 3B | **110 / 143 = 77%** (69–83%) | 30 / 30 | 47 / 57 | 8 / 22 | 15 / 22 | 10 / 12 | 66 |
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/test-models-dark.png">
-  <img alt="Pass rate by task tier on the test split for Granite 4.2 3B, Qwen3.5-4B and Qwen3.5-9B" src="docs/assets/test-models-light.png">
+  <img alt="Pass rate by task tier on the test split for four models" src="docs/assets/test-models-light.png">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/test-cost-dark.png">
+  <img alt="Pass rate against median seconds per task for four models" src="docs/assets/test-cost-light.png">
 </picture>
 
 All models handle one-call lookups perfectly; they separate where a task needs several
-dependent calls. **Qwen3.5-4B solves the whole test split.** It issues tool calls in parallel
+dependent calls, and the smallest Qwen model is both the most accurate and the fastest. Size
+helps within a family: Granite 4.2 goes from 77% to 94% between 3B and 8B (multi-step 8 → 16
+of 22), at 1.8 times the time per task. Six of the 8B model's nine failures are the 20-minute
+limit per task: all six fleet-wide questions timed out after 4 to 6 of the 12 or more tool
+calls they need, because every model call re-reads a growing context on four CPU cores (47 s
+per call on average, more late in a long episode). The limit was set before the runs and is a
+deployment constraint, not a scoring detail.
+
+**Qwen3.5-4B solves the whole test split.** It issues tool calls in parallel
 (the fleet-wide questions take 12–14 calls in about 6 model steps), reads a search's `total`
 field instead of counting the rows it was shown, still solved all 7 tasks in which one of its
 tool calls failed, and answers "none" whenever the data cannot answer. For this model the
@@ -172,7 +185,6 @@ session and the approval gate stop both write attacks, and nothing stops the pla
 
 In progress on GitHub's standard runners (4 vCPU, no GPU); results replace this section.
 
-- **Models**: Granite 4.2 8B and Qwen3.5-9B on the test split.
 - **Agent designs**: plan-and-execute and ReAct-with-reviewer against ReAct, on Granite 4.2 3B.
 - **Prompt injection with Qwen3.5-4B**, all four defences.
 - **LLM-as-judge**: Qwen3.5-4B grades Granite 4.2 3B's 143 test episodes, with and without
