@@ -1,0 +1,12 @@
+.git
+.venv
+.local
+data
+results
+models
+traces
+**/__pycache__
+.mypy_cache
+.pytest_cache
+.ruff_cache
+*.log

@@ -8,9 +8,10 @@ text the model sees is produced in one place.
 
 from __future__ import annotations
 
+import inspect
 import json
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -68,7 +69,9 @@ def compact_schema(schema: dict[str, Any]) -> dict[str, Any]:
 
 
 ResultHook = Callable[[ToolCall], str]
-ApprovalHook = Callable[[ToolCall], str | None]  # None approves; a string is the refusal
+# None approves; a string is the refusal. May be async (a person deciding in the service).
+ApprovalHook = Callable[[ToolCall], "str | Awaitable[str | None] | None"]
+EventHook = Callable[[str, ToolCall], "Awaitable[None] | None"]  # ("start" | "end", call)
 
 
 def default_render(call: ToolCall) -> str:
@@ -85,6 +88,7 @@ class Toolkit:
     servers: Sequence[MCPServer]
     render: ResultHook = default_render
     approve: ApprovalHook | None = None
+    on_event: EventHook | None = None
     calls: list[ToolCall] = field(default_factory=list)
     tools: list[StructuredTool] = field(default_factory=list)
     instructions: dict[str, str] = field(default_factory=dict)  # per server, from MCP init
@@ -115,8 +119,12 @@ class Toolkit:
     async def call(self, name: str, arguments: dict[str, Any]) -> ToolCall:
         record = ToolCall(name, dict(arguments), read_only=self.is_read_only(name))
         start = time.perf_counter()
+        await self._emit("start", record)
         client = self._clients.get(name)
-        refusal = self.approve(record) if self.approve and client is not None else None
+        refusal = None
+        if self.approve is not None and client is not None:
+            decision = self.approve(record)
+            refusal = await decision if inspect.isawaitable(decision) else decision
         if client is None:
             record.error = f"unknown tool '{name}'"
         elif refusal is not None:
@@ -130,7 +138,14 @@ class Toolkit:
                 record.result = result.structured_content or text
         record.seconds = time.perf_counter() - start
         self.calls.append(record)
+        await self._emit("end", record)
         return record
+
+    async def _emit(self, phase: str, call: ToolCall) -> None:
+        if self.on_event is not None:
+            out = self.on_event(phase, call)
+            if inspect.isawaitable(out):
+                await out
 
     def _wrap(self, name: str, description: str, schema: dict[str, Any]) -> StructuredTool:
         async def run(**kwargs: Any) -> str:

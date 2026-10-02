@@ -42,3 +42,21 @@ jobs:
         run: shopfloor data
       - name: Pytest
         run: pytest
+
+  compose:
+    name: Docker Compose stack (model server, service, Jaeger) end to end
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start
+        run: docker compose up --build --detach --wait --wait-timeout 900
+      - name: Smoke test (a question through the stream, metrics, traces)
+        run: |
+          python3 -m pip install --quiet httpx
+          PYTHONPATH=src python3 -m shopfloor_agent.service.smoke http://localhost:8000 \
+            --jaeger http://localhost:16686
+      - if: failure()
+        run: docker compose logs --tail 200
+      - if: always()
+        run: docker compose down --volumes

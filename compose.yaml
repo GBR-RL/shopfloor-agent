@@ -1,0 +1,47 @@
+# docker compose up --build    then open http://localhost:8000 (traces: http://localhost:16686)
+#
+# Everything runs on the CPU and stays on the machine: the model server, the agent service
+# with its MCP servers, and Jaeger for traces. MODEL_URL picks the model (default: the 3B
+# Granite model the benchmark uses; see `shopfloor model-url`).
+
+services:
+  llm:
+    build:
+      context: .
+      target: llm
+    environment:
+      MODEL_URL: ${MODEL_URL:-https://huggingface.co/ibm-granite/granite-4.2-3b-GGUF/resolve/main/granite-4.2-3b-Q4_K_M.gguf}
+    volumes:
+      - models:/models
+    expose:
+      - "8080"
+
+  api:
+    build:
+      context: .
+      target: api
+    depends_on:
+      llm:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    environment:
+      SHOPFLOOR_LLM_BASE_URL: http://llm:8080/v1
+      SHOPFLOOR_LLM_MODEL: ${MODEL_NAME:-granite-4.2-3b}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: shopfloor-agent
+    volumes:
+      - plant:/data
+    ports:
+      - "8000:8000"
+
+  jaeger:
+    image: jaegertracing/jaeger:2.21.0
+    ports:
+      - "16686:16686"
+    expose:
+      - "4318"
+
+volumes:
+  models:
+  plant:

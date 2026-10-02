@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shopfloor-agent</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #18202a; --muted: #5b6673; --line: #dde2e8;
+    --accent: #1f6feb; --ok: #1a7f37; --warn: #9a6700; --bad: #cf222e; --code: #eef1f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1217; --panel: #171b22; --ink: #e6e9ee; --muted: #9aa4b1; --line: #2a313b;
+      --accent: #58a6ff; --ok: #3fb950; --warn: #d29922; --bad: #f85149; --code: #1f252e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 18px 24px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { margin: 0; font-size: 18px; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  main { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 20px;
+         padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; padding: 16px; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+           padding: 16px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  textarea, select { width: 100%; font: inherit; color: inherit; background: var(--bg);
+                     border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  textarea { min-height: 96px; resize: vertical; }
+  button { font: inherit; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  .primary { background: var(--accent); color: #fff; width: 100%; margin-top: 14px; }
+  .primary:disabled { opacity: .55; cursor: default; }
+  .examples button { display: block; width: 100%; text-align: left; margin-top: 6px;
+                     background: var(--bg); color: var(--ink); border: 1px solid var(--line);
+                     font-size: 13px; }
+  #timeline { list-style: none; margin: 0; padding: 0; }
+  #timeline li { border-left: 3px solid var(--line); padding: 6px 0 10px 12px; margin-left: 4px; }
+  #timeline li.ok { border-color: var(--ok); }
+  #timeline li.error, #timeline li.blocked { border-color: var(--bad); }
+  #timeline li.approval { border-color: var(--warn); }
+  .tool { font-weight: 600; }
+  .meta { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  code, pre { background: var(--code); border-radius: 6px; font: 12.5px/1.45 ui-monospace,
+              SFMono-Regular, Consolas, monospace; }
+  code { padding: 1px 5px; }
+  pre { padding: 8px 10px; margin: 6px 0 0; white-space: pre-wrap; word-break: break-word;
+        max-height: 160px; overflow: auto; }
+  .actions { margin-top: 8px; display: flex; gap: 8px; }
+  .approve { background: var(--ok); color: #fff; }
+  .reject { background: var(--bad); color: #fff; }
+  #answer { margin-top: 16px; display: none; }
+  #answer .value { font-size: 22px; font-weight: 700; }
+  .empty { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>shopfloor-agent</h1>
+  <p>A maintenance assistant on a local model. Every tool call is shown; every change it wants
+     to make waits for your approval.</p>
+</header>
+<main>
+  <section class="panel">
+    <label for="q">Question or request</label>
+    <textarea id="q">How many corrective work orders did Chiller 9 have in 2017?</textarea>
+    <label for="agent">Agent design</label>
+    <select id="agent">
+      <option value="react">ReAct</option>
+      <option value="plan_execute">Plan and execute</option>
+      <option value="react_verify">ReAct with reviewer</option>
+    </select>
+    <label for="writes">Changes to records</label>
+    <select id="writes">
+      <option value="approve">Allowed, each one needs my approval</option>
+      <option value="off">Off (read-only session)</option>
+    </select>
+    <button class="primary" id="run">Ask</button>
+    <div class="examples">
+      <label>Examples</label>
+      <button data-q="Which chiller had the most corrective work orders in 2013?">Which chiller had the most corrective work orders in 2013?</button>
+      <button data-q="What was the highest Power Input reading of Chiller 6 on 2020-06-07?">Highest Power Input of Chiller 6 on 2020-06-07</button>
+      <button data-q="Create a corrective work order for Chiller 10: 'Inspect condenser water flow', priority 2, component 'condenser'.">Create a corrective work order for Chiller 10</button>
+    </div>
+  </section>
+  <section class="panel">
+    <ul id="timeline"><li class="empty">The agent's steps appear here.</li></ul>
+    <div id="answer" class="panel">
+      <div class="meta" id="answer-meta"></div>
+      <div class="value" id="answer-value"></div>
+      <pre id="answer-text"></pre>
+    </div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const timeline = $("timeline");
+const items = [];
+
+function add(cls, html) {
+  if (timeline.querySelector(".empty")) timeline.innerHTML = "";
+  const li = document.createElement("li");
+  li.className = cls;
+  li.innerHTML = html;
+  timeline.appendChild(li);
+  return li;
+}
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const args = (a) => `<code>${esc(JSON.stringify(a))}</code>`;
+
+async function decide(id, approve, li) {
+  li.querySelector(".actions").remove();
+  await fetch(`/approvals/${id}`, {method: "POST", headers: {"Content-Type": "application/json"},
+                                   body: JSON.stringify({approve})});
+}
+
+function handle(e) {
+  if (e.type === "tool_start") {
+    items.push(add("", `<span class="tool">${esc(e.tool)}</span> ${args(e.args)}<span class="meta">running</span>`));
+  } else if (e.type === "tool_end") {
+    const li = items.shift() || add("", "");
+    li.className = e.outcome;
+    const detail = e.error ? `<pre>${esc(e.error)}</pre>` : `<pre>${esc(e.result)}</pre>`;
+    li.querySelector(".meta").textContent = `${e.outcome} · ${e.seconds}s`;
+    li.insertAdjacentHTML("beforeend", detail);
+  } else if (e.type === "approval_required") {
+    const li = add("approval", `<strong>Approval needed:</strong> <span class="tool">${esc(e.tool)}</span> ${args(e.args)}
+      <div class="actions"><button class="approve">Approve</button><button class="reject">Reject</button></div>`);
+    li.querySelector(".approve").onclick = () => decide(e.id, true, li);
+    li.querySelector(".reject").onclick = () => decide(e.id, false, li);
+  } else if (e.type === "approval_decided") {
+    add(e.approved ? "ok" : "blocked", e.approved ? "Approved" : "Rejected");
+  } else if (e.type === "answer") {
+    $("answer").style.display = "block";
+    $("answer-value").textContent = e.answer ?? "(no ANSWER line)";
+    $("answer-text").textContent = e.text;
+    $("answer-meta").textContent = `${e.steps} model calls · ${e.seconds}s · ${e.tokens_in} tokens in`;
+  } else if (e.type === "error") {
+    add("error", `<strong>Error:</strong> ${esc(e.message)}`);
+  }
+}
+
+$("run").onclick = async () => {
+  $("run").disabled = true;
+  timeline.innerHTML = "";
+  items.length = 0;
+  $("answer").style.display = "none";
+  try {
+    const res = await fetch("/ask", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({question: $("q").value, agent: $("agent").value, writes: $("writes").value})});
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    for (;;) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+      let cut;
+      while ((cut = buffer.indexOf("\n\n")) >= 0) {
+        const chunk = buffer.slice(0, cut);
+        buffer = buffer.slice(cut + 2);
+        if (chunk.startsWith("data: ")) handle(JSON.parse(chunk.slice(6)));
+      }
+    }
+  } catch (err) {
+    add("error", `<strong>Error:</strong> ${esc(err)}`);
+  } finally {
+    $("run").disabled = false;
+  }
+};
+document.querySelectorAll(".examples button").forEach((b) => b.onclick = () => { $("q").value = b.dataset.q; });
+</script>
+</body>
+</html>

@@ -191,7 +191,9 @@ def judge_cmd(
     summary = {"overall": agreement(graded)}
     for tier in sorted({str(g["tier"]) for g in graded}):
         summary[tier] = agreement([g for g in graded if g["tier"] == tier])
-    out.with_suffix(".summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    Path(f"{out}".removesuffix(".jsonl") + ".summary.json").write_text(
+        json.dumps(summary, indent=2), encoding="utf-8"
+    )
     typer.echo(json.dumps(summary["overall"], indent=2))
 
 
@@ -227,10 +229,21 @@ def report_cmd(
             raise typer.BadParameter(f"no {split} results for run '{name}'")
         summaries[name] = summarize(rows)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.with_suffix(".json").write_text(json.dumps(summaries, indent=2), encoding="utf-8")
+    # names like "granite-4.2-3b" contain dots, so append extensions instead of with_suffix
+    Path(f"{out}.json").write_text(json.dumps(summaries, indent=2), encoding="utf-8")
     table = markdown(summaries)
-    out.with_suffix(".md").write_text(table, encoding="utf-8")
+    Path(f"{out}.md").write_text(table, encoding="utf-8")
     typer.echo(table)
+
+
+@app.command("serve")
+def serve(host: str = "127.0.0.1", port: int = 8000) -> None:
+    """Runs the HTTP service (event stream, write approvals, /metrics, demo page at /)."""
+    import uvicorn
+
+    from shopfloor_agent.service.app import create_app
+
+    uvicorn.run(create_app(), host=host, port=port)
 
 
 @app.command("ask")
