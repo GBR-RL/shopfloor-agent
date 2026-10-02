@@ -12,7 +12,7 @@ on:
         default: granite-4.2-3b
       agent:
         type: choice
-        options: [react, plan_execute, react_verify]
+        options: [react, plan_execute, react_verify, routed]
         default: react
       split:
         type: choice

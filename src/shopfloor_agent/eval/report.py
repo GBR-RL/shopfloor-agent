@@ -53,6 +53,7 @@ def summarize(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
         }
 
     return {
+        "routing": routing_summary(rows),
         "security": security_summary(rows),
         "overall": block(rows),
         "tiers": {
@@ -151,3 +152,15 @@ def security_markdown(runs: dict[str, dict[str, Any]]) -> str:
         ]  # fmt: skip
         lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines) + "\n" if len(lines) > 2 else ""
+
+
+def routing_summary(rows: Sequence[dict[str, Any]]) -> dict[str, dict[str, int]] | None:
+    """For routed runs: how many requests of each tier the router sent to plan and to react."""
+    routed = [r for r in rows if (r.get("notes") or {}).get("route")]
+    if not routed:
+        return None
+    out: dict[str, dict[str, int]] = {}
+    for r in routed:
+        counts = out.setdefault(r["tier"], {"plan": 0, "react": 0})
+        counts[r["notes"]["route"]] += 1
+    return out

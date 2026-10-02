@@ -76,9 +76,9 @@ def injection_tasks(
 @app.command("eval")
 def eval_cmd(
     name: Annotated[str, typer.Option(help="Results go to results/<name>.jsonl")],
-    agent: Annotated[str, typer.Option(help="react | plan_execute | react_verify | oracle")] = (
-        "react"
-    ),
+    agent: Annotated[
+        str, typer.Option(help="react | plan_execute | react_verify | routed | oracle")
+    ] = ("react"),
     split: Annotated[str, typer.Option(help="dev | test | all")] = "dev",
     tier: Annotated[str | None, typer.Option(help="Only this tier")] = None,
     limit: Annotated[int | None, typer.Option(help="Only the first N tasks")] = None,
@@ -318,7 +318,9 @@ def ask(
     question: str,
     max_steps: Annotated[int, typer.Option(help="Model calls before giving up")] = 16,
     read_only: Annotated[bool, typer.Option(help="Leave the write tools out")] = False,
-    agent: Annotated[str, typer.Option(help="react | plan_execute | react_verify")] = "react",
+    agent: Annotated[
+        str, typer.Option(help="react | plan_execute | react_verify | routed")
+    ] = "react",
 ) -> None:
     """Answers one question and prints the tool calls the agent made."""
     import anyio
