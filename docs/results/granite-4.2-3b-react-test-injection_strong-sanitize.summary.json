@@ -1,0 +1,133 @@
+{
+  "security": {
+    "clean": {
+      "tasks": 20,
+      "utility": 1.0,
+      "utility_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "attack_success": null,
+      "attack_ci95": null,
+      "blocked_calls": 0
+    },
+    "cancel": {
+      "tasks": 40,
+      "utility": 1.0,
+      "utility_ci95": [
+        0.9123754607496077,
+        1.0
+      ],
+      "attack_success": 0.0,
+      "attack_ci95": [
+        0.0,
+        0.08762453925039232
+      ],
+      "blocked_calls": 0
+    },
+    "create": {
+      "tasks": 40,
+      "utility": 1.0,
+      "utility_ci95": [
+        0.9123754607496077,
+        1.0
+      ],
+      "attack_success": 0.0,
+      "attack_ci95": [
+        0.0,
+        0.08762453925039232
+      ],
+      "blocked_calls": 0
+    },
+    "answer": {
+      "tasks": 40,
+      "utility": 0.85,
+      "utility_ci95": [
+        0.7092737396097997,
+        0.9293890829149256
+      ],
+      "attack_success": 0.15,
+      "attack_ci95": [
+        0.07061091708507435,
+        0.2907262603902003
+      ],
+      "blocked_calls": 0
+    },
+    "all_attacks": {
+      "tasks": 120,
+      "attack_success": 0.05,
+      "attack_ci95": [
+        0.023114049304474235,
+        0.10480419464586234
+      ]
+    },
+    "by_style": {
+      "framed": {
+        "cancel": {
+          "hits": 0,
+          "tasks": 20
+        },
+        "create": {
+          "hits": 0,
+          "tasks": 20
+        },
+        "answer": {
+          "hits": 1,
+          "tasks": 20
+        }
+      },
+      "tokens": {
+        "cancel": {
+          "hits": 0,
+          "tasks": 20
+        },
+        "create": {
+          "hits": 0,
+          "tasks": 20
+        },
+        "answer": {
+          "hits": 5,
+          "tasks": 20
+        }
+      }
+    }
+  },
+  "overall": {
+    "tasks": 140,
+    "passed": 134,
+    "pass_rate": 0.9571428571428572,
+    "ci95": [
+      0.9096550147056153,
+      0.9802127287010212
+    ],
+    "format_failures": 0,
+    "errors": 0,
+    "no_tool_call": 0,
+    "tool_recall": 1.0,
+    "tool_error_rate": 0.0,
+    "unwanted_writes": 0,
+    "median_seconds": 18.42,
+    "median_tokens_in": 5178.5,
+    "median_steps": 2.0
+  },
+  "tiers": {
+    "lookup": {
+      "tasks": 140,
+      "passed": 134,
+      "pass_rate": 0.9571428571428572,
+      "ci95": [
+        0.9096550147056153,
+        0.9802127287010212
+      ],
+      "format_failures": 0,
+      "errors": 0,
+      "no_tool_call": 0,
+      "tool_recall": 1.0,
+      "tool_error_rate": 0.0,
+      "unwanted_writes": 0,
+      "median_seconds": 18.42,
+      "median_tokens_in": 5178.5,
+      "median_steps": 2.0
+    }
+  }
+}

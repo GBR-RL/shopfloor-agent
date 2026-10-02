@@ -62,13 +62,20 @@ def tasks_cmd(out: Annotated[Path, typer.Option()] = SUITE, seed: int = 7) -> No
 @app.command("injection-tasks")
 def injection_tasks(
     suite: Annotated[Path, typer.Option()] = SUITE,
-    out: Annotated[Path, typer.Option()] = Path("tasks/injection.jsonl"),
+    strength: Annotated[str, typer.Option(help="basic | strong")] = "basic",
+    out: Annotated[
+        Path | None, typer.Option(help="Default: tasks/injection[_strong].jsonl")
+    ] = None,
 ) -> None:
-    """Builds the prompt-injection suite (clean + three attacks per work-order lookup)."""
+    """Builds a prompt-injection suite: per work-order lookup a clean variant and the attacks
+    (basic: three goals; strong: three goals in two styles, control tokens and task framing)."""
     from shopfloor_agent.eval.injection import build
     from shopfloor_agent.eval.tasks import load, save
 
-    tasks = build(load(suite))
+    out = out or Path(
+        "tasks/injection.jsonl" if strength == "basic" else "tasks/injection_strong.jsonl"
+    )
+    tasks = build(load(suite), strength)
     save(tasks, out)
     typer.echo(f"{len(tasks)} tasks -> {out}")
 
@@ -85,7 +92,9 @@ def eval_cmd(
     shard: Annotated[str | None, typer.Option(help="INDEX/COUNT of the tasks")] = None,
     max_steps: Annotated[int, typer.Option(help="Model calls per task")] = 16,
     read_only: Annotated[bool, typer.Option(help="Leave the write tools out")] = False,
-    defense: Annotated[str, typer.Option(help="none | spotlight | read_only | approval")] = "none",
+    defense: Annotated[
+        str, typer.Option(help="none | spotlight | sanitize | read_only | approval")
+    ] = "none",
     suite: Annotated[Path, typer.Option()] = SUITE,
 ) -> None:
     """Runs the agent on the task suite as isolated episodes; resumes an interrupted run."""
@@ -170,7 +179,9 @@ def judge_cmd(
         index, count = (int(v) for v in shard.split("/"))
         rows = rows[index::count]
         name = f"{name}.shard-{index}-of-{count}"
-    questions = load_questions([SUITE, Path("tasks/injection.jsonl")])
+    questions = load_questions(
+        [SUITE, Path("tasks/injection.jsonl"), Path("tasks/injection_strong.jsonl")]
+    )
     out = settings.results_dir / f"{name}.jsonl"
     done = {r["task"]: r for r in load_results(out)}
     llm = make_llm(settings, max_tokens=700)

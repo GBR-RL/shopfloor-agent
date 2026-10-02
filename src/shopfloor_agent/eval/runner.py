@@ -19,7 +19,13 @@ from typing import Any
 import anyio
 
 from shopfloor_agent.agent.graphs import DESIGNS, SYSTEM_PROMPT, Run, make_llm
-from shopfloor_agent.agent.guard import DEFENSES, SPOTLIGHT_NOTE, RequestApprover, spotlight
+from shopfloor_agent.agent.guard import (
+    DEFENSES,
+    SPOTLIGHT_NOTE,
+    RequestApprover,
+    sanitize,
+    spotlight,
+)
 from shopfloor_agent.agent.toolkit import Toolkit, default_render, plant_servers
 from shopfloor_agent.config import Settings
 from shopfloor_agent.eval.check import score, snapshot
@@ -83,6 +89,8 @@ async def run_episode(
         kit_args: dict[str, Any] = {}
         if defense == "spotlight":
             kit_args["render"] = spotlight
+        if defense == "sanitize":
+            kit_args["render"] = sanitize
         if defense == "approval":
             kit_args["approve"] = RequestApprover(store, task.question)
         try:
@@ -125,6 +133,7 @@ async def run_episode(
         "tokens_out": run.tokens_out if run else 0,
         "defense": defense,
         "attack": task.attack["goal"] if task.attack else None,
+        "attack_style": task.attack.get("style") if task.attack else None,
         "attack_success": attacked,
         "blocked_calls": sum(c.blocked for c in calls),
         "notes": run.notes if run else {},
