@@ -51,6 +51,11 @@
   .actions { margin-top: 8px; display: flex; gap: 8px; }
   .approve { background: var(--ok); color: #fff; }
   .reject { background: var(--bad); color: #fff; }
+  #status { color: var(--muted); font-size: 13px; margin: 0 0 10px; min-height: 1.4em; }
+  #status::before { content: ""; display: inline-block; width: 8px; height: 8px;
+                    border-radius: 50%; margin-right: 8px; background: transparent; }
+  #status.busy::before { background: var(--accent); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: .25; } }
   #answer { margin-top: 16px; display: none; }
   #answer .value { font-size: 22px; font-weight: 700; }
   .empty { color: var(--muted); }
@@ -86,6 +91,7 @@
     </div>
   </section>
   <section class="panel">
+    <p id="status"></p>
     <ul id="timeline"><li class="empty">The agent's steps appear here.</li></ul>
     <div id="answer" class="panel">
       <div class="meta" id="answer-meta"></div>
@@ -99,13 +105,17 @@ const $ = (id) => document.getElementById(id);
 const timeline = $("timeline");
 const items = [];
 
-function add(cls, html) {
+function add(cls, html, before = null) {
   if (timeline.querySelector(".empty")) timeline.innerHTML = "";
   const li = document.createElement("li");
   li.className = cls;
   li.innerHTML = html;
-  timeline.appendChild(li);
+  timeline.insertBefore(li, before);  // null appends
   return li;
+}
+function status(text, busy) {
+  $("status").textContent = text;
+  $("status").className = busy ? "busy" : "";
 }
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const args = (a) => `<code>${esc(JSON.stringify(a))}</code>`;
@@ -117,7 +127,10 @@ async function decide(id, approve, li) {
 }
 
 function handle(e) {
-  if (e.type === "tool_start") {
+  if (e.type === "started") {
+    status("The model is working on it", true);
+  } else if (e.type === "tool_start") {
+    status(`Calling ${e.tool}`, true);
     items.push(add("", `<span class="tool">${esc(e.tool)}</span> ${args(e.args)}<span class="meta">running</span>`));
   } else if (e.type === "tool_end") {
     const li = items.shift() || add("", "");
@@ -125,19 +138,24 @@ function handle(e) {
     const detail = e.error ? `<pre>${esc(e.error)}</pre>` : `<pre>${esc(e.result)}</pre>`;
     li.querySelector(".meta").textContent = `${e.outcome} · ${e.seconds}s`;
     li.insertAdjacentHTML("beforeend", detail);
+    status("The model is working on it", true);
   } else if (e.type === "approval_required") {
+    status("Waiting for your decision", false);
+    // above the pending call, which runs only once approved
     const li = add("approval", `<strong>Approval needed:</strong> <span class="tool">${esc(e.tool)}</span> ${args(e.args)}
-      <div class="actions"><button class="approve">Approve</button><button class="reject">Reject</button></div>`);
+      <div class="actions"><button class="approve">Approve</button><button class="reject">Reject</button></div>`, items[0] ?? null);
     li.querySelector(".approve").onclick = () => decide(e.id, true, li);
     li.querySelector(".reject").onclick = () => decide(e.id, false, li);
   } else if (e.type === "approval_decided") {
-    add(e.approved ? "ok" : "blocked", e.approved ? "Approved" : "Rejected");
+    add(e.approved ? "ok" : "blocked", e.approved ? "Approved" : "Rejected", items[0] ?? null);
   } else if (e.type === "answer") {
+    status("", false);
     $("answer").style.display = "block";
     $("answer-value").textContent = e.answer ?? "(no ANSWER line)";
     $("answer-text").textContent = e.text;
     $("answer-meta").textContent = `${e.steps} model calls · ${e.seconds}s · ${e.tokens_in} tokens in`;
   } else if (e.type === "error") {
+    status("", false);
     add("error", `<strong>Error:</strong> ${esc(e.message)}`);
   }
 }
