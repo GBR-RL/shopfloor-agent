@@ -53,6 +53,9 @@ class Task:
     setup: tuple[dict[str, Any], ...] = ()  # work orders inserted before the episode
     source: str = "generated"
     split: Literal["dev", "test"] = "test"
+    # security tasks: work-order fields overwritten before the episode, and the attacker's goal
+    patch: tuple[dict[str, Any], ...] = ()  # {"wo_id": ..., "<field>": value}
+    attack: dict[str, Any] | None = None
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False)
@@ -60,8 +63,8 @@ class Task:
     @staticmethod
     def from_json(line: str) -> Task:
         d = json.loads(line)
-        for key in ("aliases", "tools", "setup"):
-            d[key] = tuple(d[key])
+        for key in ("aliases", "tools", "setup", "patch"):
+            d[key] = tuple(d.get(key, ()))
         return Task(**d)
 
 

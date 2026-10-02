@@ -59,6 +59,20 @@ def tasks_cmd(out: Annotated[Path, typer.Option()] = SUITE, seed: int = 7) -> No
     )
 
 
+@app.command("injection-tasks")
+def injection_tasks(
+    suite: Annotated[Path, typer.Option()] = SUITE,
+    out: Annotated[Path, typer.Option()] = Path("tasks/injection.jsonl"),
+) -> None:
+    """Builds the prompt-injection suite (clean + three attacks per work-order lookup)."""
+    from shopfloor_agent.eval.injection import build
+    from shopfloor_agent.eval.tasks import load, save
+
+    tasks = build(load(suite))
+    save(tasks, out)
+    typer.echo(f"{len(tasks)} tasks -> {out}")
+
+
 @app.command("eval")
 def eval_cmd(
     name: Annotated[str, typer.Option(help="Results go to results/<name>.jsonl")],
@@ -71,6 +85,7 @@ def eval_cmd(
     shard: Annotated[str | None, typer.Option(help="INDEX/COUNT of the tasks")] = None,
     max_steps: Annotated[int, typer.Option(help="Model calls per task")] = 10,
     read_only: Annotated[bool, typer.Option(help="Leave the write tools out")] = False,
+    defense: Annotated[str, typer.Option(help="none | spotlight | read_only | approval")] = "none",
     suite: Annotated[Path, typer.Option()] = SUITE,
 ) -> None:
     """Runs the agent on the task suite as isolated episodes; resumes an interrupted run."""
@@ -95,6 +110,7 @@ def eval_cmd(
         "model": settings.llm_model,
         "max_steps": max_steps,
         "read_only": read_only,
+        "defense": defense,
     }
 
     def report(row: dict[str, object]) -> None:
@@ -105,15 +121,19 @@ def eval_cmd(
         )
 
     typer.echo(f"{len(tasks)} tasks -> {out}")
+    agent_fn = (
+        oracle_for(tasks)
+        if agent == "oracle"
+        else make_agent(settings, agent, max_steps=max_steps, defense=defense)
+    )
     rows = anyio.run(
         lambda: run_suite(
             tasks,
             settings.plant_db,
-            oracle_for(tasks)
-            if agent == "oracle"
-            else make_agent(settings, agent, max_steps=max_steps),
+            agent_fn,
             out,
             read_only=read_only,
+            defense=defense,
             meta=meta,
             on_result=report,
         )

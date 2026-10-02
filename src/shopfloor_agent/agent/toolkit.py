@@ -32,6 +32,7 @@ class ToolCall:
     error: str | None = None
     seconds: float = 0.0
     read_only: bool = True
+    blocked: bool = False  # stopped by the approval gate before reaching the server
 
 
 def plant_servers(db: Path | PlantStore, *, read_only: bool = False) -> list[MCPServer]:
@@ -67,6 +68,7 @@ def compact_schema(schema: dict[str, Any]) -> dict[str, Any]:
 
 
 ResultHook = Callable[[ToolCall], str]
+ApprovalHook = Callable[[ToolCall], str | None]  # None approves; a string is the refusal
 
 
 def default_render(call: ToolCall) -> str:
@@ -82,6 +84,7 @@ class Toolkit:
 
     servers: Sequence[MCPServer]
     render: ResultHook = default_render
+    approve: ApprovalHook | None = None
     calls: list[ToolCall] = field(default_factory=list)
     tools: list[StructuredTool] = field(default_factory=list)
     _clients: dict[str, Client] = field(default_factory=dict)
@@ -110,8 +113,11 @@ class Toolkit:
         record = ToolCall(name, dict(arguments), read_only=self.is_read_only(name))
         start = time.perf_counter()
         client = self._clients.get(name)
+        refusal = self.approve(record) if self.approve and client is not None else None
         if client is None:
             record.error = f"unknown tool '{name}'"
+        elif refusal is not None:
+            record.error, record.blocked = f"not approved: {refusal}", True
         else:
             result = await client.call_tool(name, arguments)
             text = " ".join(getattr(c, "text", "") for c in result.content)
