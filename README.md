@@ -23,7 +23,8 @@ the timings on the page are real.*
 3. **Planning helps where reacting fails, and hurts elsewhere.** On the same 3B model, a planning
    step lifts multi-step from 0 to 11 of 22 but drops lookups from 30 to 19 of 30, because a
    wrong plan is followed faithfully. A reviewer pass helps actions (15 → 18 of 22) and leaves
-   multi-step at zero.
+   multi-step at zero. Letting one model call pick plan or ReAct per request scores highest
+   (110 of 143); the router itself is what holds it back.
 4. **Instructions in a record were ignored until they carried chat-template tokens.** In 320
    attacked episodes with plain instructions, no model carried out an injected write. When the
    same requests carried the models' control tokens, which llama.cpp parses inside tool
@@ -95,10 +96,11 @@ The same model (Granite 4.2 3B), tools and budget of 16 model calls:
 | ReAct | 102 / 143 = 71% (63–78%) | 30 / 30 | 47 / 57 | 0 / 22 | 15 / 22 | 10 / 12 | 66 | 7.7 k |
 | Plan and execute | 99 / 143 = 69% (61–76%) | 19 / 30 | 51 / 57 | **11 / 22** | 13 / 22 | 5 / 12 | 160 | 15.9 k |
 | ReAct with reviewer | 104 / 143 = 73% (65–79%) | 29 / 30 | 46 / 57 | 0 / 22 | **18 / 22** | 11 / 12 | 113 | 9.6 k |
+| Routed: plan or ReAct per request | **110 / 143 = 77% (69–83%)** | 30 / 30 | 46 / 57 | 6 / 22 | 17 / 22 | 11 / 12 | 84 | 8.7 k |
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/test-designs-dark.png">
-  <img alt="Pass rate by task tier for three agent designs on Granite 4.2 3B" src="docs/assets/test-designs-light.png">
+  <img alt="Pass rate by task tier for four agent designs on Granite 4.2 3B" src="docs/assets/test-designs-light.png">
 </picture>
 
 The overall scores are within each other's intervals; the tiers are not. A plan written before
@@ -107,9 +109,30 @@ even when it is wrong: for "which failure code is on work order X" the planner c
 `search_work_orders` instead of `get_work_order`, and 14 of the planner's lookup and
 unanswerable failures are episodes that spent the whole budget on such a plan. The reviewer flagged 19
 of 118 answers as unsupported; its second look fixed actions, while its extra calls come out of
-the same budget the multi-step tasks already exhaust. Picking the design by request type
-(plan for multi-step questions, react for lookups) would combine the gains; it is not measured
-here.
+the same budget the multi-step tasks already exhaust.
+
+**Routing per request.** The routed design spends one model call on a structured choice, plan
+or ReAct, and runs that design with the remaining 15 calls. The router's prompt says when a
+request needs one call's result before the next can be made. It was revised once after the dev
+run (25 of 37 with either version, against 24 for ReAct) and then run once on the test split.
+Its examples (the most frequent alert, the busiest day) resemble the suite's question types,
+and dev and test share those types. That gives the router an advantage it would not have on
+new kinds of request.
+
+- **It keeps ReAct's lookups and adds part of the planner's multi-step gain.** On the same tasks
+  as ReAct it wins 12 and loses 4. That is the best overall score, but not a proven gain: an
+  exact McNemar test gives p = 0.08.
+- **The router is the weak part.** It sent 11 of the 22 multi-step tasks to the planner, which
+  passed 6, and 10 to ReAct, which passed none; the last one timed out with its route
+  unrecorded. Five of the six "which chiller had the most …" questions went to ReAct, although
+  the router's prompt names that case. The standalone planner passes 4 of the 11 tasks it never
+  saw.
+- **Over-planning cost nothing.** The router also sent 18 single-call tasks to the planner;
+  they passed 12, against 11 for the same tasks under ReAct.
+- With the standalone runs' results, routing exactly by tier (planner for multi-step only)
+  would score 113, and an oracle that knew which design passes would score 127.
+- Most requests take the ReAct route, so the cost stays close to ReAct's: a median of 84 s and
+  8.7 k prompt tokens per task.
 
 ## Tool descriptions are prompts
 
@@ -270,6 +293,8 @@ flowchart LR
 - **Agent designs** (LangGraph), compared at the same budget of model calls: ReAct; plan and
   execute, where a planning call writes the steps as structured JSON first; and ReAct with a
   reviewer that checks the answer against the tool results and can send the agent back once.
+  A routed variant lets one structured model call choose plan and execute or ReAct for each
+  request.
 - **Service**: `POST /ask` streams every tool call, every approval request and the answer as
   server-sent events. A write runs only after `POST /approvals/{id}`; without a decision it is
   refused after a timeout. Prometheus metrics cover requests, tool calls by outcome, latency,

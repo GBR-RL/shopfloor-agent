@@ -5,6 +5,8 @@
                 loop then carries it out with the plan in its context
 - react_verify  ReAct, then a reviewer call checks whether the answer follows from the tool
                 results; if not, the agent gets the critique and one more round
+- routed        a router call classifies the request first: dependent multi-step work goes to
+                plan_execute, everything else to react
 
 Every design gets the same step budget (model calls), so they are compared at equal cost.
 """
@@ -15,7 +17,7 @@ import json
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, Literal, TypedDict
 
 from langchain_core.messages import (
     AIMessage,
@@ -260,9 +262,62 @@ async def run_react_verify(
                {"reviews": verdicts})  # fmt: skip
 
 
+# --- routed: plan or react, decided per request -------------------------------------------------
+class Route(BaseModel):
+    reason: str = Field(description="one short sentence", max_length=300)
+    route: Literal["plan", "react"]
+
+
+ROUTER_PROMPT = """You decide how a maintenance assistant should work on a request, before it
+starts. It can call tools that look up equipment, sensor readings, work orders, events, alerts
+and failure codes, and tools that change work orders. One call can filter by equipment and
+date and count or group records (by year, month, type, component or failure code).
+- plan: the answer needs the result of one call before the next call can be made, or the same
+  lookup repeated for every piece of equipment. For example: which equipment has the most of
+  something, or a detail about the most frequent alert or the busiest day.
+- react: one call, or a few independent ones, return what is needed: a single record, a count
+  or grouped counts, a statistic over a period, a list, or a change to records. That includes
+  a maximum over the periods of one piece of equipment, which one grouped count answers.
+Pick the route; when in doubt, pick react."""
+
+
+async def choose_route(llm: ChatOpenAI, question: str) -> tuple[str, str, BaseMessage | None]:
+    """(route, reason, raw reply). A reply that cannot be parsed falls back to react."""
+    router = llm.with_structured_output(Route, method="json_schema", include_raw=True)
+    try:
+        out = await router.ainvoke([SystemMessage(ROUTER_PROMPT), HumanMessage(question)])
+    except Exception as exc:  # a router failure must not cost the request
+        return "react", f"router failed ({type(exc).__name__})", None
+    route: Route | None = out["parsed"]
+    if route is None:
+        return "react", "router reply not parsed", out["raw"]
+    return route.route, route.reason, out["raw"]
+
+
+async def run_routed(
+    question: str,
+    kit: Toolkit,
+    llm: ChatOpenAI,
+    *,
+    max_steps: int = 16,
+    system: str = SYSTEM_PROMPT,
+) -> Run:
+    """One router call picks plan_execute or react for this request; the router call counts
+    against the same budget of model calls."""
+    start = time.perf_counter()
+    route, reason, raw = await choose_route(llm, question)
+    design = run_plan_execute if route == "plan" else run_react
+    run = await design(question, kit, llm, max_steps=max_steps - 1, system=system)
+    tin, tout = _usage([raw] if raw is not None else [])
+    return Run(run.answer, run.steps + 1, time.perf_counter() - start, run.tokens_in + tin,
+               run.tokens_out + tout, run.stopped, run.messages,
+               {**run.notes, "route": route, "route_reason": reason})  # fmt: skip
+
+
 AgentDesign = Callable[..., Awaitable[Run]]
 DESIGNS: dict[str, AgentDesign] = {
     "react": run_react,
     "plan_execute": run_plan_execute,
     "react_verify": run_react_verify,
+    "routed": run_routed,
 }
