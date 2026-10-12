@@ -1,7 +1,8 @@
 # shopfloor-agent
 
-An on-prem maintenance assistant for plant engineers. Open-weight language models run on a CPU
-(llama.cpp, 4-bit), the plant's records are reachable only through four
+An on-prem maintenance assistant for plant engineers. Open-weight language models run locally
+behind an OpenAI-compatible server (llama.cpp on a GPU or a CPU, or vLLM on a GPU), so plant data
+never leaves the site. The plant's records are reachable only through four
 [MCP](https://modelcontextprotocol.io) servers, and every change the agent wants to make to a
 record waits for a person to approve it. Every score in this README comes from deterministic
 checks against the plant database; an LLM judge is measured against those checks, not used
@@ -394,7 +395,8 @@ tests/        47 tests: servers over real MCP sessions, scoring, oracle, defence
 - One run per configuration; greedy decoding on different runner CPUs is not bit-reproducible,
   so single-task differences between runs are noise.
 - Scores are not comparable with the AssetOpsBench leaderboard (different tools, no LLM judge).
-- CPU-only 4-bit models; the timings are for 4-vCPU runners and vary with the runner's CPU.
+- The models were measured as 4-bit GGUF files on 4-vCPU runners, the slowest setting; the
+  timings vary with the runner's CPU, and a GPU shortens them.
 
 ## Licence
 
